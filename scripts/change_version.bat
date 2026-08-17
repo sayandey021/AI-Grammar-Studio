@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: Ensure the script runs from the repository root directory
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 title AI Grammar Studio - Change Application Version
 
@@ -16,8 +16,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Run version update script (passes argument if provided, or prompts interactively)
-node "%~dp0scripts\set-version.js" %1
+:: Run version update script (in the same scripts directory)
+node "%~dp0set-version.js" %1
 
 if %errorlevel% neq 0 (
     pause

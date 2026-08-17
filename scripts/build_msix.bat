@@ -2,12 +2,16 @@
 setlocal enabledelayedexpansion
 
 :: Ensure the script runs from the repository root directory
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
-title AI Grammar Studio - Build Windows Installer (.EXE)
+title AI Grammar Studio - Build Windows Store Package (.MSIX / .APPX)
 
 echo =======================================================
-echo     AI Grammar Studio - Building Windows Setup (.EXE)
+echo     AI Grammar Studio - Building MSIX / AppX Package
+echo =======================================================
+echo Identity Name:       Saayan.AIGrammerStudio
+echo Publisher:           CN=37E2AF47-D2FC-489C-BDC1-02C989A7B989
+echo Publisher Display:   Saayan
 echo =======================================================
 echo.
 
@@ -52,17 +56,23 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-echo [3/3] Packaging Windows EXE Installer (NSIS)...
-call npx electron-builder --win nsis --x64
+echo [3/3] Packaging Windows MSIX / AppX Store Package...
+:: Ensure all AppX visual assets exist
+if not exist "build\appx\Square150x150Logo.png" (
+    echo Generating AppX visual assets from build\icon.png...
+    powershell -ExecutionPolicy Bypass -File "%~dp0generate-icons.ps1"
+)
+if exist "dist" rmdir /s /q "dist" 2>nul
+call npx electron-builder --win appx --x64
 if %errorlevel% neq 0 (
-    echo [ERROR] Electron packaging failed!
+    echo [ERROR] MSIX packaging failed!
     pause
     exit /b %errorlevel%
 )
 
 echo.
 echo =======================================================
-echo [SUCCESS] Windows Installer (.EXE) generated successfully!
+echo [SUCCESS] Windows Package (.MSIX / .APPX) generated successfully!
 echo Output Directory: dist\
 echo =======================================================
 echo.

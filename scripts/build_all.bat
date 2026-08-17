@@ -2,12 +2,12 @@
 setlocal enabledelayedexpansion
 
 :: Ensure the script runs from the repository root directory
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
-title AI Grammar Studio - Build Windows Store Package (.MSIX / .APPX)
+title AI Grammar Studio - Full Release Build (.EXE + .MSIX)
 
 echo =======================================================
-echo     AI Grammar Studio - Building MSIX / AppX Package
+echo     AI Grammar Studio - Building .EXE and .MSIX
 echo =======================================================
 echo Identity Name:       Saayan.AIGrammerStudio
 echo Publisher:           CN=37E2AF47-D2FC-489C-BDC1-02C989A7B989
@@ -34,7 +34,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Clean temporary caches
+:: Clean temporary caches and old build files
 if exist "node_modules\@xenova\transformers\.cache" (
     echo Cleaning temporary transformers cache...
     rmdir /s /q "node_modules\@xenova\transformers\.cache" 2>nul
@@ -56,23 +56,27 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-echo [3/3] Packaging Windows MSIX / AppX Store Package...
+echo [3/3] Packaging Windows Releases (.EXE Installer + .MSIX Store Package)...
 :: Ensure all AppX visual assets exist
 if not exist "build\appx\Square150x150Logo.png" (
     echo Generating AppX visual assets from build\icon.png...
-    powershell -ExecutionPolicy Bypass -File scripts\generate-icons.ps1
+    powershell -ExecutionPolicy Bypass -File "%~dp0generate-icons.ps1"
 )
+
+:: Clean previous dist artifacts to avoid file locks
 if exist "dist" rmdir /s /q "dist" 2>nul
-call npx electron-builder --win appx --x64
+
+:: Build both NSIS and AppX targets in a single electron-builder pass
+call npx electron-builder --win nsis appx --x64
 if %errorlevel% neq 0 (
-    echo [ERROR] MSIX packaging failed!
+    echo [ERROR] Packaging failed!
     pause
     exit /b %errorlevel%
 )
 
 echo.
 echo =======================================================
-echo [SUCCESS] Windows Package (.MSIX / .APPX) generated successfully!
+echo [SUCCESS] All Windows builds (.EXE + .MSIX) generated!
 echo Output Directory: dist\
 echo =======================================================
 echo.

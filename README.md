@@ -106,14 +106,14 @@ graph TD
 
 ## 📦 Build & Packaging
 
-AI Grammar Studio includes automated Windows build scripts located in the root directory:
+AI Grammar Studio includes automated Windows build scripts located in the `scripts/` directory:
 
 | Script | Command | Description |
 | :--- | :--- | :--- |
-| **`build_all.bat`** | `npm run build:all` | Compiles frontend/backend and creates both **`.EXE`** and **`.MSIX`** in `dist/`. |
-| **`build_exe.bat`** | `npm run build:exe` | Generates a standalone **NSIS Windows Installer (`.exe`)**. |
-| **`build_msix.bat`** | `npm run build:msix` | Generates a signed **Windows Store Package (`.msix` / `.appx`)**. |
-| **`change_version.bat`** | `npm run set-version` | Interactively updates version numbers across `package.json` and manifests. |
+| **`scripts/build_all.bat`** | `npm run build:all` | Compiles frontend/backend and creates both **`.EXE`** and **`.MSIX`** in `dist/`. |
+| **`scripts/build_exe.bat`** | `npm run build:exe` | Generates a standalone **NSIS Windows Installer (`.exe`)**. |
+| **`scripts/build_msix.bat`** | `npm run build:msix` | Generates a signed **Windows Store Package (`.msix` / `.appx`)**. |
+| **`scripts/change_version.bat`** | `npm run set-version` | Interactively updates version numbers across `package.json` and manifests. |
 
 ---
 
@@ -124,6 +124,10 @@ AI Grammar Studio includes automated Windows build scripts located in the root d
 ├── assets/                   # Application icons & visual branding assets
 ├── build/                    # AppX / MSIX packaging resources and tile logos
 ├── scripts/
+│   ├── build_all.bat         # Unified build script (.EXE + .MSIX)
+│   ├── build_exe.bat         # Standalone Windows NSIS installer builder
+│   ├── build_msix.bat        # Microsoft Store package builder
+│   ├── change_version.bat    # Interactive version management script
 │   ├── generate-icons.ps1    # PowerShell script to generate AppX store logo variants
 │   └── set-version.js        # Automated semantic version updater
 ├── src/

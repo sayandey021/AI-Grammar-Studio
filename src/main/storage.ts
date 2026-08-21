@@ -45,6 +45,7 @@ export class Storage {
       customDictionary: [],
       activeGrammarModelId: 'flan-t5-base',
       activeCreativeModelId: 'qwen3-0.6b',
+      activeTranslationModelId: 'nllb-200-distilled-600m',
       executionDevice: 'auto'
     });
     
@@ -58,6 +59,11 @@ export class Storage {
 
     if (!settings.activeCreativeModelId || settings.activeCreativeModelId.startsWith('flan-t5') || settings.activeCreativeModelId === 'qwen-0.5b') {
       settings.activeCreativeModelId = 'qwen3-0.6b';
+      this.writeJson(this.settingsFile, settings);
+    }
+
+    if (!settings.activeTranslationModelId) {
+      settings.activeTranslationModelId = 'nllb-200-distilled-600m';
       this.writeJson(this.settingsFile, settings);
     }
     

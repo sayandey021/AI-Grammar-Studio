@@ -1,10 +1,11 @@
 {
   "name": "ai-grammar-studio",
   "productName": "AI Grammar Studio",
-  "version": "1.0.0",
+  "version": "1.2.2",
   "description": "AI Grammar Studio - Private, offline-first intelligent writing assistant",
   "main": "out/main/index.js",
   "author": "Saayan",
+  "license": "GPL-3.0",
   "scripts": {
     "dev": "concurrently \"vite\" \"tsc -p tsconfig.node.json --watch\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
     "compile:main": "tsc -p tsconfig.node.json",
@@ -108,7 +109,6 @@
     "url": "https://github.com/sayandey021/AI-Grammar-Studio/issues"
   },
   "homepage": "https://github.com/sayandey021/AI-Grammar-Studio#readme",
-  "license": "GPL-3.0",
   "dependencies": {
     "@xenova/transformers": "^2.17.2",
     "compromise": "^14.16.0",

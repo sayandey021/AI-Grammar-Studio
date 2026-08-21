@@ -47,9 +47,14 @@ function updateVersion(newVersion) {
 
   console.log(`\n=======================================================`);
   console.log(` [SUCCESS] Version successfully updated to ${newVersion}!`);
-  console.log(` - App UI (About Page): Version ${newVersion}`);
-  console.log(` - Windows Installer (.EXE): AI Grammar Studio-${newVersion}-x64.exe`);
-  console.log(` - Windows Store (.MSIX): Identity Version ${newVersion}.0`);
+  console.log(` -------------------------------------------------------`);
+  console.log(` • package.json:              ${newVersion}`);
+  console.log(` • package-lock.json:         ${newVersion}`);
+  console.log(` • TitleBar (Dynamic):        v${newVersion}`);
+  console.log(` • Studio Dashboard (Dynamic): About v${newVersion}`);
+  console.log(` • About Page (Dynamic):      v${newVersion}`);
+  console.log(` • Windows Installer (.EXE):  AI Grammar Studio-${newVersion}-x64.exe`);
+  console.log(` • Windows Store (.MSIX):     AI Grammar Studio-${newVersion}-x64.msix`);
   console.log(`=======================================================\n`);
 }
 

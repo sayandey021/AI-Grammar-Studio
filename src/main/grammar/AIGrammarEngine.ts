@@ -234,8 +234,14 @@ export class AIGrammarEngine implements GrammarProvider {
         pipelineOptions.executionProviders = ['cpu'];
         pipelineOptions.device = 'cpu';
       } else {
-        // 'auto': Default to stable CPU / WASM backend in Node environment to prevent native crash
-        pipelineOptions.executionProviders = ['cpu'];
+        // 'auto': Try GPU DirectML acceleration on Windows, otherwise CPU
+        if (process.platform === 'win32') {
+          pipelineOptions.executionProviders = ['directml', 'cpu'];
+          pipelineOptions.device = 'directml';
+        } else {
+          pipelineOptions.executionProviders = ['cpu'];
+          pipelineOptions.device = 'cpu';
+        }
       }
 
       if (modelConfig.repo.includes('onnx-community')) {
@@ -725,7 +731,6 @@ export class AIGrammarEngine implements GrammarProvider {
       return response;
     } catch (error: any) {
       if (error.message === 'ABORT_GENERATION') {
-        // If auto-aborted due to a fake second turn, return whatever was streamed so far
         if (streamAborted && streamBuffer) {
           return this.extractOutput(modelConfig, streamBuffer, formattedPrompt);
         }
@@ -735,4 +740,191 @@ export class AIGrammarEngine implements GrammarProvider {
       throw new Error(error.message || 'Failed to generate response.');
     }
   }
+
+  public async detectAi(sentences: string[], modelId?: string): Promise<{ scores: number[]; modelName: string } | null> {
+    if (!sentences || sentences.length === 0) return { scores: [], modelName: '' };
+
+    let targetModelId = modelId;
+    if (!targetModelId) {
+      const settings = this.storage.getSettings();
+      targetModelId = settings.activeDetectorModelId;
+    }
+
+    if (!targetModelId) {
+      const detectorModels = AVAILABLE_MODELS.filter(m => m.category === 'detector');
+      for (const m of detectorModels) {
+        if (this.modelManager.isDownloaded(m.id)) {
+          targetModelId = m.id;
+          break;
+        }
+      }
+    }
+
+    if (!targetModelId || !this.modelManager.isDownloaded(targetModelId)) {
+      return null;
+    }
+
+    const modelConfig = AVAILABLE_MODELS.find(m => m.id === targetModelId);
+    if (!modelConfig) return null;
+
+    try {
+      const classifier = await this.getPipeline(modelConfig);
+      const scores: number[] = [];
+
+      for (const sentence of sentences) {
+        if (!sentence.trim()) {
+          scores.push(0);
+          continue;
+        }
+        try {
+          const res = await classifier(sentence);
+          let aiProb = 0.5;
+          if (Array.isArray(res) && res.length > 0) {
+            const aiHit = res.find((item: any) => {
+              const lbl = (item.label || '').toLowerCase();
+              return lbl === 'fake' || lbl === 'label_1' || lbl === 'ai' || lbl === 'generated' || lbl === 'machine' || lbl === 'synthetic';
+            });
+            const humanHit = res.find((item: any) => {
+              const lbl = (item.label || '').toLowerCase();
+              return lbl === 'real' || lbl === 'label_0' || lbl === 'human' || lbl === 'original';
+            });
+
+            if (aiHit) {
+              aiProb = aiHit.score;
+            } else if (humanHit) {
+              aiProb = 1 - humanHit.score;
+            } else {
+              const top = res[0];
+              const labelLower = (top.label || '').toLowerCase();
+              if (labelLower === 'fake' || labelLower === 'label_1' || labelLower === 'ai' || labelLower === 'generated') {
+                aiProb = top.score;
+              } else if (labelLower === 'real' || labelLower === 'label_0' || labelLower === 'human') {
+                aiProb = 1 - top.score;
+              } else {
+                aiProb = top.score;
+              }
+            }
+          }
+          scores.push(Math.max(0, Math.min(100, Math.round(aiProb * 100))));
+        } catch (err) {
+          scores.push(50);
+        }
+      }
+
+      return { scores, modelName: modelConfig.name };
+    } catch (e) {
+      console.error('AI Detect Error:', e);
+      return null;
+    }
+  }
+
+  public async translate(
+    text: string,
+    sourceLang: string = 'en',
+    targetLang: string = 'es',
+    modelId: string = 'nllb-200-distilled-600m'
+  ): Promise<{ translation: string; sourceLang: string; targetLang: string; modelName: string }> {
+    if (!text || !text.trim()) {
+      return { translation: '', sourceLang, targetLang, modelName: 'Meta NLLB-200' };
+    }
+
+    const modelConfig = AVAILABLE_MODELS.find(m => m.id === modelId && m.category === 'translation')
+      || AVAILABLE_MODELS.find(m => m.id === 'nllb-200-distilled-600m')
+      || AVAILABLE_MODELS.find(m => m.category === 'translation');
+
+    if (!modelConfig) {
+      throw new Error(`Translation model '${modelId}' not found.`);
+    }
+
+    const isDownloaded = await this.modelManager.isDownloaded(modelConfig.id);
+    if (!isDownloaded) {
+      throw new Error(`Translation model '${modelConfig.name}' is not downloaded. Please download it from Settings or the Translation page.`);
+    }
+
+    // Resolve NLLB codes
+    const srcCode = NLLB_LANGUAGE_MAP[sourceLang.toLowerCase()]?.code || sourceLang;
+    const tgtCode = NLLB_LANGUAGE_MAP[targetLang.toLowerCase()]?.code || targetLang;
+
+    const translator = await this.getPipeline(modelConfig);
+
+    // Split text by paragraphs/newlines so original structure is preserved
+    const paragraphs = text.split('\n');
+    const translatedParagraphs: string[] = [];
+
+    for (const paragraph of paragraphs) {
+      if (!paragraph.trim()) {
+        translatedParagraphs.push('');
+        continue;
+      }
+
+      // If paragraph is long, split by sentence boundaries
+      const sentences = paragraph.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [paragraph];
+      const translatedSentences: string[] = [];
+
+      for (const sentence of sentences) {
+        if (!sentence.trim()) continue;
+        const result = await translator(sentence.trim(), {
+          src_lang: srcCode,
+          tgt_lang: tgtCode
+        });
+
+        const outputText = Array.isArray(result) && result.length > 0
+          ? result[0].translation_text || ''
+          : (result?.translation_text || '');
+
+        translatedSentences.push(outputText);
+      }
+
+      translatedParagraphs.push(translatedSentences.join(' '));
+    }
+
+    return {
+      translation: translatedParagraphs.join('\n'),
+      sourceLang,
+      targetLang,
+      modelName: modelConfig.name
+    };
+  }
 }
+
+export const NLLB_LANGUAGE_MAP: Record<string, { code: string; name: string; nativeName: string }> = {
+  'en': { code: 'eng_Latn', name: 'English', nativeName: 'English' },
+  'es': { code: 'spa_Latn', name: 'Spanish', nativeName: 'Español' },
+  'fr': { code: 'fra_Latn', name: 'French', nativeName: 'Français' },
+  'de': { code: 'deu_Latn', name: 'German', nativeName: 'Deutsch' },
+  'hi': { code: 'hin_Deva', name: 'Hindi', nativeName: 'हिन्दी' },
+  'zh': { code: 'zho_Hans', name: 'Chinese (Simplified)', nativeName: '简体中文' },
+  'zh-tw': { code: 'zho_Hant', name: 'Chinese (Traditional)', nativeName: '繁體中文' },
+  'ja': { code: 'jpn_Jpan', name: 'Japanese', nativeName: '日本語' },
+  'ar': { code: 'arb_Arab', name: 'Arabic', nativeName: 'العربية' },
+  'ru': { code: 'rus_Cyrl', name: 'Russian', nativeName: 'Русский' },
+  'pt': { code: 'por_Latn', name: 'Portuguese', nativeName: 'Português' },
+  'it': { code: 'ita_Latn', name: 'Italian', nativeName: 'Italiano' },
+  'nl': { code: 'nld_Latn', name: 'Dutch', nativeName: 'Nederlands' },
+  'ko': { code: 'kor_Hang', name: 'Korean', nativeName: '한국어' },
+  'tr': { code: 'tur_Latn', name: 'Turkish', nativeName: 'Türkçe' },
+  'pl': { code: 'pol_Latn', name: 'Polish', nativeName: 'Polski' },
+  'uk': { code: 'ukr_Cyrl', name: 'Ukrainian', nativeName: 'Українська' },
+  'vi': { code: 'vie_Latn', name: 'Vietnamese', nativeName: 'Tiếng Việt' },
+  'id': { code: 'ind_Latn', name: 'Indonesian', nativeName: 'Bahasa Indonesia' },
+  'th': { code: 'tha_Thai', name: 'Thai', nativeName: 'ไทย' },
+  'bn': { code: 'ben_Beng', name: 'Bengali', nativeName: 'বাংলা' },
+  'ta': { code: 'tam_Taml', name: 'Tamil', nativeName: 'தமிழ்' },
+  'te': { code: 'tel_Telu', name: 'Telugu', nativeName: 'తెలుగు' },
+  'mr': { code: 'mar_Deva', name: 'Marathi', nativeName: 'मराठी' },
+  'ur': { code: 'urd_Arab', name: 'Urdu', nativeName: 'اردو' },
+  'fa': { code: 'pes_Arab', name: 'Persian', nativeName: 'فارسی' },
+  'sv': { code: 'swe_Latn', name: 'Swedish', nativeName: 'Svenska' },
+  'cs': { code: 'ces_Latn', name: 'Czech', nativeName: 'Čeština' },
+  'ro': { code: 'ron_Latn', name: 'Romanian', nativeName: 'Română' },
+  'el': { code: 'ell_Grek', name: 'Greek', nativeName: 'Ελληνικά' },
+  'hu': { code: 'hun_Latn', name: 'Hungarian', nativeName: 'Magyar' },
+  'da': { code: 'dan_Latn', name: 'Danish', nativeName: 'Dansk' },
+  'fi': { code: 'fin_Latn', name: 'Finnish', nativeName: 'Suomi' },
+  'no': { code: 'nob_Latn', name: 'Norwegian', nativeName: 'Norsk' },
+  'he': { code: 'heb_Hebr', name: 'Hebrew', nativeName: 'עבריت' },
+  'ms': { code: 'zsm_Latn', name: 'Malay', nativeName: 'Bahasa Melayu' },
+  'fil': { code: 'tgl_Latn', name: 'Filipino / Tagalog', nativeName: 'Tagalog' },
+  'sw': { code: 'swh_Latn', name: 'Swahili', nativeName: 'Kiswahili' }
+};
+

@@ -1,5 +1,5 @@
 import React from 'react';
-import { PenTool, Settings, Info, Microscope, Feather } from 'lucide-react';
+import { PenTool, Settings, Info, Microscope, Feather, ShieldCheck, Languages } from 'lucide-react';
 import appLogo from '../assets/logo.png';
 
 interface SidebarProps {
@@ -11,7 +11,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => {
   const navItems = [
     { id: 'editor', icon: PenTool, label: 'Editor' },
     { id: 'prompt', icon: Feather, label: 'Creative Writing' },
+    { id: 'translation', icon: Languages, label: 'Translation' },
     { id: 'analysis', icon: Microscope, label: 'Analysis' },
+    { id: 'detector', icon: ShieldCheck, label: 'Plagiarism & AI Detector' },
   ];
 
   const bottomItems = [
@@ -34,9 +36,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => {
     <nav className="sidebar">
       <div className="sidebar-top">
         <div 
-          className="sidebar-logo-container" 
-          title="AI Grammar Studio" 
-          onClick={() => onNavigate('editor')}
+          className={`sidebar-logo-container ${currentPage === 'dashboard' ? 'active-dashboard' : ''}`}
+          title="AI Grammar Studio - Dashboard Hub" 
+          onClick={() => onNavigate('dashboard')}
         >
           <img src={appLogo} alt="AI Grammar Studio" className="sidebar-logo-img" />
         </div>

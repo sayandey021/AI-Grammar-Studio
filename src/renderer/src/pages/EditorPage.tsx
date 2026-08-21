@@ -1,5 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PenTool, CheckCircle, AlertTriangle, Info, Zap, Sparkles, Feather, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { 
+  PenTool, 
+  CheckCircle, 
+  AlertTriangle, 
+  Info, 
+  Zap, 
+  Sparkles, 
+  Feather, 
+  ChevronRight, 
+  ChevronLeft, 
+  Loader2,
+  AlignLeft,
+  Clock,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
 
 interface EditorPageProps {
   settings: any;
@@ -11,12 +26,12 @@ interface EditorPageProps {
 const EditorPage: React.FC<EditorPageProps> = ({ settings, pendingText, onClearPendingText, onNavigateToSettings }) => {
   const [text, setText] = useState('');
   const [mode, setMode] = useState<'quick' | 'ai'>('quick');
-  const [tone, setTone] = useState('professional');
+  const [tone] = useState('professional');
   const [isChecking, setIsChecking] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [rewritePreview, setRewritePreview] = useState<string | null>(null);
   const [modelInstalled, setModelInstalled] = useState<boolean | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (pendingText) {
@@ -195,16 +210,47 @@ const EditorPage: React.FC<EditorPageProps> = ({ settings, pendingText, onClearP
           </div>
 
           <div className="pro-editor-footer">
-            <div className="pro-word-count">
-              <Feather size={14} />
-              {text.trim() ? text.trim().split(/\s+/).length : 0} words
+            <div className="pro-footer-left">
+              <div className="pro-stat-item" title="Word count">
+                <Feather size={13} className="pro-stat-icon" />
+                <span>{text.trim() ? text.trim().split(/\s+/).length : 0} words</span>
+              </div>
+              <span className="pro-footer-sep">•</span>
+              <div className="pro-stat-item" title="Character count">
+                <AlignLeft size={13} className="pro-stat-icon" />
+                <span>{text.length} chars</span>
+              </div>
+              <span className="pro-footer-sep">•</span>
+              <div className="pro-stat-item" title="Estimated reading time">
+                <Clock size={13} className="pro-stat-icon" />
+                <span>~{Math.max(1, Math.ceil((text.trim() ? text.trim().split(/\s+/).length : 0) / 200))} min read</span>
+              </div>
             </div>
-            <div className="pro-status-indicator" title={modelInstalled ? "Local AI model is active" : "Local AI model is not installed"}>
-              {modelInstalled ? (
-                <><span className="status-dot installed"></span> Local Model Ready</>
-              ) : (
-                <><span className="status-dot missing"></span> Offline Mode Only</>
-              )}
+
+            <div className="pro-footer-right">
+              {suggestions.length > 0 ? (
+                <div 
+                  className="pro-stat-badge issue-badge" 
+                  onClick={() => setIsSidebarOpen(true)}
+                  title="Click to view suggestions in sidebar"
+                >
+                  <AlertCircle size={13} />
+                  <span>{suggestions.length} issue{suggestions.length === 1 ? '' : 's'}</span>
+                </div>
+              ) : text.trim().length > 0 ? (
+                <div className="pro-stat-badge clean-badge">
+                  <CheckCircle2 size={13} />
+                  <span>Ready</span>
+                </div>
+              ) : null}
+
+              <div className="pro-status-indicator" title={modelInstalled ? "Local AI model is active" : "Local AI model is not installed"}>
+                {modelInstalled ? (
+                  <><span className="status-dot installed pulsing"></span> Local AI Ready</>
+                ) : (
+                  <><span className="status-dot missing"></span> Heuristics Only</>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -215,14 +261,15 @@ const EditorPage: React.FC<EditorPageProps> = ({ settings, pendingText, onClearP
         <button
           className="pro-sidebar-toggle"
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          title={isSidebarOpen ? "Hide Sidebar" : "Show Sidebar"}
+          title={isSidebarOpen ? "Hide Suggestions Panel" : "Show Suggestions Panel"}
+          aria-label={isSidebarOpen ? "Hide Suggestions Panel" : "Show Suggestions Panel"}
         >
-          {isSidebarOpen ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {isSidebarOpen ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
         </button>
 
         <div className="pro-sidebar-content" style={{ opacity: isSidebarOpen ? 1 : 0, pointerEvents: isSidebarOpen ? 'auto' : 'none', transition: 'opacity 0.2s' }}>
           <h3 className="pro-sidebar-title">
-            <CheckCircle size={18} /> Analysis Results
+            <CheckCircle size={16} /> Analysis Results
           </h3>
 
           <div className="pro-suggestions-list">

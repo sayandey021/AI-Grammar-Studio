@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from 'electron';
 import { join } from 'path';
 import fs from 'fs';
 import { Worker } from 'worker_threads';
 import { Storage } from './storage';
 import { QuickGrammarEngine } from './grammar/QuickGrammarEngine';
 import { ModelManager } from './models/ModelManager';
+import { analyzePlagiarismAndAI, splitSentencesWithOffsets } from './detector/detectorEngine';
 
 // Remove the default application menu bar (File, Edit, View, Window)
 Menu.setApplicationMenu(null);
@@ -124,8 +125,11 @@ function createWindow() {
     icon: iconPath,
     width: 1200,
     height: 800,
+    minWidth: 900,
+    minHeight: 600,
     autoHideMenuBar: true,
-    titleBarStyle: 'hiddenInset',
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -137,6 +141,22 @@ function createWindow() {
   if (typeof (mainWindow as any).removeMenu === 'function') {
     (mainWindow as any).removeMenu();
   }
+
+  // Notify renderer of maximize/unmaximize state changes
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send('window-maximized-change', true);
+  });
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send('window-maximized-change', false);
+  });
+
+  // Open external links in user's default system browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
 
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
@@ -196,45 +216,92 @@ ipcMain.handle('save-settings', async (_, settings) => {
 });
 
 ipcMain.handle('get-gpu-info', async () => {
-  try {
-    const gpuInfo = await app.getGPUInfo('basic');
-    const devices: Array<{ vendor: string; model: string; type: string }> = [];
-    
-    if (gpuInfo && Array.isArray((gpuInfo as any).gpuDevice)) {
-      for (const dev of (gpuInfo as any).gpuDevice) {
-        const vendorId = (dev.vendorId || 0).toString(16).toLowerCase();
-        let vendorName = 'Graphics Card';
-        let type = 'other';
+  let devices: Array<{ vendor: string; model: string; type: string; memoryMB?: number }> = [];
 
-        if (vendorId.includes('10de') || /nvidia/i.test(dev.driverVendor || '')) {
-          vendorName = 'NVIDIA';
-          type = 'nvidia';
-        } else if (vendorId.includes('1002') || vendorId.includes('1022') || /amd|radeon|advanced micro/i.test(dev.driverVendor || '')) {
-          vendorName = 'AMD';
-          type = 'amd';
-        } else if (vendorId.includes('8086') || /intel/i.test(dev.driverVendor || '')) {
-          vendorName = 'Intel';
-          type = 'intel';
+  // 1. Direct hardware query on Windows via PowerShell CIM for clean names & VRAM
+  if (process.platform === 'win32') {
+    try {
+      const { execSync } = require('child_process');
+      const psCmd = 'Get-CimInstance Win32_VideoController | Select-Object Name, VideoProcessor, DriverVersion, AdapterRAM | ConvertTo-Json';
+      const raw = execSync(`powershell -NoProfile -Command "${psCmd}"`, { timeout: 3000, encoding: 'utf-8' });
+      if (raw && raw.trim()) {
+        const parsed = JSON.parse(raw.trim());
+        const list = Array.isArray(parsed) ? parsed : [parsed];
+        for (const item of list) {
+          const name = (item.Name || '').trim();
+          if (!name || /virtual|basic display|remote|rdp|citrix|vbox|vmware|parsec/i.test(name)) continue;
+
+          let vendor = 'Graphics Card';
+          let type = 'other';
+          if (/nvidia|geforce|quadro|rtx|gtx/i.test(name)) {
+            vendor = 'NVIDIA';
+            type = 'nvidia';
+          } else if (/amd|radeon/i.test(name) || /amd|radeon/i.test(item.VideoProcessor || '')) {
+            vendor = 'AMD';
+            type = 'amd';
+          } else if (/intel|iris|uhd|arc/i.test(name)) {
+            vendor = 'Intel';
+            type = 'intel';
+          }
+
+          const memMB = item.AdapterRAM ? Math.round(Number(item.AdapterRAM) / (1024 * 1024)) : undefined;
+
+          if (!devices.some(d => d.model.toLowerCase() === name.toLowerCase())) {
+            devices.push({
+              vendor,
+              model: name,
+              type,
+              memoryMB: memMB
+            });
+          }
         }
-
-        devices.push({
-          vendor: vendorName,
-          model: dev.driverVendor ? `${vendorName} (${dev.driverVendor})` : `${vendorName} GPU`,
-          type
-        });
       }
+    } catch (e) {
+      console.warn('[GPU Detection] PowerShell CIM query skipped:', e);
     }
-
-    return {
-      devices,
-      hasNvidia: devices.some(d => d.type === 'nvidia'),
-      hasAmd: devices.some(d => d.type === 'amd'),
-      hasIntel: devices.some(d => d.type === 'intel')
-    };
-  } catch (err) {
-    console.warn('[GPU Detection] Error getting GPU info:', err);
-    return { devices: [], hasNvidia: false, hasAmd: false, hasIntel: false };
   }
+
+  // 2. Fallback to Electron getGPUInfo if CIM returned no physical GPUs
+  if (devices.length === 0) {
+    try {
+      const gpuInfo = await app.getGPUInfo('basic');
+      if (gpuInfo && Array.isArray((gpuInfo as any).gpuDevice)) {
+        for (const dev of (gpuInfo as any).gpuDevice) {
+          const vendorId = (dev.vendorId || 0).toString(16).toLowerCase();
+          let vendorName = 'Graphics Card';
+          let type = 'other';
+
+          if (vendorId.includes('10de') || /nvidia/i.test(dev.driverVendor || '') || /nvidia/i.test(dev.description || '')) {
+            vendorName = 'NVIDIA';
+            type = 'nvidia';
+          } else if (vendorId.includes('1002') || vendorId.includes('1022') || /amd|radeon/i.test(dev.driverVendor || '') || /amd|radeon/i.test(dev.description || '')) {
+            vendorName = 'AMD';
+            type = 'amd';
+          } else if (vendorId.includes('8086') || /intel/i.test(dev.driverVendor || '') || /intel/i.test(dev.description || '')) {
+            vendorName = 'Intel';
+            type = 'intel';
+          }
+
+          const modelStr = dev.description || (dev.driverVendor ? `${vendorName} (${dev.driverVendor})` : `${vendorName} GPU`);
+          if (!devices.some(d => d.model.toLowerCase() === modelStr.toLowerCase())) {
+            devices.push({
+              vendor: vendorName,
+              model: modelStr,
+              type
+            });
+          }
+        }
+      }
+    } catch { }
+  }
+
+  return {
+    devices,
+    hasGpu: devices.length > 0,
+    hasNvidia: devices.some(d => d.type === 'nvidia'),
+    hasAmd: devices.some(d => d.type === 'amd'),
+    hasIntel: devices.some(d => d.type === 'intel')
+  };
 });
 
 ipcMain.handle('add-custom-word', async (_, word) => {
@@ -277,7 +344,10 @@ ipcMain.handle('download-model', async (_, modelId: string) => {
 });
 
 ipcMain.handle('delete-model', async (_, modelId: string) => {
-  return sendToWorker('deleteModel', { modelId });
+  const res = await sendToWorker('deleteModel', { modelId });
+  mainWindow?.webContents.send('model-download-progress', modelId, 0);
+  mainWindow?.webContents.send('model-deleted', modelId);
+  return res;
 });
 
 ipcMain.handle('open-model-location', async (_, modelId: string) => {
@@ -386,4 +456,162 @@ ipcMain.handle('generate-ai-prompt', async (_, prompt: string, options?: any) =>
 ipcMain.handle('abort-ai-prompt', async () => {
   return sendToWorker('abortPrompt', {});
 });
+
+ipcMain.handle('open-external-url', async (_, url: string) => {
+  if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+    await shell.openExternal(url);
+  }
+});
+
+ipcMain.handle('detect-plagiarism-ai', async (_, payload: { text: string; onlineMode?: boolean; referenceText?: string }) => {
+  try {
+    let neuralScores: number[] | undefined;
+    let neuralModelName: string | undefined;
+
+    // Check if any detector model is installed
+    const hasTmr = modelManager.isDownloaded('tmr-ai-detector');
+    const hasRoberta = modelManager.isDownloaded('roberta-openai-detector');
+    const hasModernBert = modelManager.isDownloaded('modernbert-ai-detector');
+
+    if (hasTmr || hasRoberta || hasModernBert) {
+      try {
+        const rawSentences = splitSentencesWithOffsets(payload.text);
+        if (rawSentences.length > 0) {
+          const detectRes = await sendToWorker('detectAi', {
+            sentences: rawSentences.map(s => s.text),
+          });
+          if (detectRes?.scores && detectRes.scores.length > 0) {
+            neuralScores = detectRes.scores;
+            neuralModelName = detectRes.modelName;
+          }
+        }
+      } catch (workerErr) {
+        console.warn('Neural detection fallback to statistical NLP:', workerErr);
+      }
+    }
+
+    return await analyzePlagiarismAndAI(payload.text, {
+      onlineMode: payload.onlineMode,
+      referenceText: payload.referenceText,
+      neuralScores,
+      neuralModelName,
+    });
+  } catch (error: any) {
+    console.error('Detector error:', error);
+    throw new Error(error.message || 'Detection analysis failed');
+  }
+});
+
+ipcMain.handle('export-report-pdf', async (_, { htmlContent, title }: { htmlContent: string; title?: string }) => {
+  if (!mainWindow) return { success: false, error: 'Main window not available' };
+  try {
+    const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Originality & AI Report (PDF)',
+      defaultPath: `${(title || 'AI_Grammar_Studio_Report').replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.pdf`,
+      filters: [{ name: 'PDF Document', extensions: ['pdf'] }]
+    });
+    if (canceled || !filePath) return { success: false, canceled: true };
+
+    const printWin = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+    const pdfData = await printWin.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      margins: {
+        top: 0.3,
+        bottom: 0.3,
+        left: 0.3,
+        right: 0.3
+      }
+    });
+
+    await fs.promises.writeFile(filePath, pdfData);
+    printWin.destroy();
+    return { success: true, filePath };
+  } catch (err: any) {
+    console.error('PDF export error:', err);
+    return { success: false, error: err?.message || 'Failed to export PDF' };
+  }
+});
+
+ipcMain.handle('export-report-html', async (_, { htmlContent, title }: { htmlContent: string; title?: string }) => {
+  if (!mainWindow) return { success: false, error: 'Main window not available' };
+  try {
+    const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Originality & AI Report (HTML)',
+      defaultPath: `${(title || 'AI_Grammar_Studio_Report').replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.html`,
+      filters: [{ name: 'HTML Document', extensions: ['html', 'htm'] }]
+    });
+    if (canceled || !filePath) return { success: false, canceled: true };
+
+    await fs.promises.writeFile(filePath, htmlContent, 'utf-8');
+    return { success: true, filePath };
+  } catch (err: any) {
+    console.error('HTML export error:', err);
+    return { success: false, error: err?.message || 'Failed to export HTML' };
+  }
+});
+
+ipcMain.handle('read-reference-file', async () => {
+  if (!mainWindow) return { success: false, error: 'Main window not available' };
+  try {
+    const { filePaths, canceled } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Reference Document for Comparison',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Text & Markdown Documents', extensions: ['txt', 'md', 'rtf', 'log', 'json', 'csv'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    if (canceled || !filePaths || filePaths.length === 0) return { success: false, canceled: true };
+
+    const content = await fs.promises.readFile(filePaths[0], 'utf-8');
+    const fileName = filePaths[0].split(/[/\\]/).pop();
+    return { success: true, content, fileName };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to read file' };
+  }
+});
+
+ipcMain.handle('translate-text', async (_, payload: { text: string; sourceLang: string; targetLang: string; modelId?: string }) => {
+  return sendToWorker('translate', payload);
+});
+
+// Window Control IPC Handlers
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow) {
+    mainWindow.minimize();
+  }
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+    return mainWindow.isMaximized();
+  }
+  return false;
+});
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow) {
+    mainWindow.close();
+  }
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow?.isMaximized() ?? false;
+});
+
+
 

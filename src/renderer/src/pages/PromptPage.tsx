@@ -12,7 +12,6 @@ import {
   BookOpen,
   Feather,
   Mail,
-  RefreshCw,
   Square
 } from 'lucide-react';
 

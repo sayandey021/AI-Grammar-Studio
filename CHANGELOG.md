@@ -2,6 +2,163 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2] - 2026-08-21
+
+### Added
+- **Modern Desktop Studio Dashboard Hub**:
+  - Integrated an interactive **Studio Dashboard** accessible at any time by clicking the top sidebar app icon.
+  - **Quick-Start Launcher Strip**: Interactive instant-action banner allowing users to jump directly into the Grammar Editor with 1-click or paste text immediately.
+  - **Structured Workflow Grids**: Cleanly separated into *Writing & Language Studios* (Grammar & Style Editor, Creative Writing, Neural Translation) and *Linguistics, Auditing & Preferences* (Deep Linguistic Analysis, AI & Plagiarism Detector, Models & Hardware).
+  - **System Telemetry & Health Bar**: Displays real-time on-device privacy guarantee, active grammar engine (dynamically resolved to the active model name configured in Settings: e.g., `T5 Base (Grammar)`, `Gec-T5 Small`, `Flan-T5 Large`, `CoEdIT Large` or `Fast Heuristic Rules`), compute device (e.g., `Radeon RX 570 Series (DirectML)` vs CPU), and App Info shortcut.
+- **Precision GPU Hardware Detection & Virtual Adapter Filtering**:
+  - Implemented direct Windows WMI/CIM hardware queries in Electron main process to capture physical GPU model names, dedicated VRAM capacity (e.g., `Radeon RX 570 Series (4 GB VRAM)`), and driver information.
+  - Added intelligent filtering to exclude virtual/software display adapters (e.g. Parsec, RDP, Basic Display) and deduplicate graphics hardware entries.
+- **Intelligent Compute Engine & Hardware Acceleration Status (Settings)**:
+  - Added a glassmorphic **Detected Graphics Hardware** banner featuring physical GPU device chips, dedicated VRAM badges, and vendor acceleration tags (`AMD DirectML`, `NVIDIA CUDA`, `Intel DirectML`).
+  - **Auto Hardware (Recommended) Live Resolution**: Dynamically resolves and displays the exact active backend being utilized (e.g., `⚡ Using: AMD DirectML (Radeon RX 570 Series)`).
+  - **Hardware Compatibility Badges**: Compute engine cards now show clear `✓ Supported & Detected` vs. `✕ Not Supported (No NVIDIA GPU)` status badges with dashed/dimmed states for unsupported hardware.
+  - **Safe Fallback Warnings**: Added interactive confirmation modal informing users if an unsupported acceleration backend is selected, confirming automatic CPU fallback.
+- **Dynamic Translation Engine Status Pill**:
+  - Replaced the static header pill in the Neural Translation Page with a reactive status badge displaying `• ⚡ Local AI Online` (when model weights are verified locally) or `• ⚠ Local AI Offline` (when weights are missing/downloading).
+- **New Unified Application Brand & Installer Logo**:
+  - Replaced the application icon and logo across the entire codebase with the newly redesigned branded emblem.
+  - Regenerated all production Windows binaries, installer assets, `.ico` application icons, AppX/MSIX tile scales (100% to 400%), and renderer UI assets.
+- **Redesigned Professional About & Architecture Page**:
+  - Revamped the About Page with an ultra-sleek, glassmorphic layout featuring the elevated product logo, feature chips, and system architecture summary.
+  - Added dedicated **Architect & Lead Developer Profile Card** for **Sayan Dey** (`@sayandey021`) with integrated 1-click **LinkedIn Profile** (`linkedin.com/in/sayan-dey021`) and GitHub connections.
+  - Added categorized engineering pillars (100% On-Device Privacy, DirectML Acceleration, Multi-Model Neural Pipeline, Offline Translation) and technical runtime spec strip.
+
+### Changed
+- **Streamlined Minimal Header**:
+  - Cleaned up TitleBar elements for an uncluttered, distraction-free desktop title bar.
+  - Refined dashboard and hardware card styling with subtle glassmorphic surfaces, crisp borders, micro-animations, and full Dark/Light theme adaptability.
+
+## [1.2.1] - 2026-08-21
+
+### Added
+- **Modernized Custom Themed TitleBar**:
+  - Replaced the default Windows OS title bar with a frameless, high-fidelity header styled to match the app's Dark (`#05070d`) and Light (`#f8f9fa`) themes.
+  - **Dynamic Page Breadcrumbs**: Active section badge with matching Lucide icons (`PenTool`, `Feather`, `Languages`, `Microscope`, `ShieldCheck`, `Settings`, `Info`).
+  - **Live Engine Status Pill**: Real-time central indicator displaying `<Zap /> Local AI Ready` (with pulsing glow) or `<Sparkles /> Fast Heuristic Engine`.
+  - **Custom Window Controls**: Sleek Minimize (`—`), Maximize/Restore (`❐` / `□`), and Close (`✕` with red hover state) buttons.
+  - **Quick Theme Switcher**: Dedicated toggle button (`Sun`/`Moon`) directly in the title bar for instant theme switching.
+  - **Native Window Dragging**: Added `-webkit-app-region: drag` support across the entire title bar with double-click to maximize/restore.
+- **Enhanced Multi-Metric Bottom Status Bar**:
+  - Upgraded the Editor footer status bar with live word count, character count, estimated reading time, suggestion count badge, and glowing model status light.
+- **Offline Neural Translation Model Management**:
+  - Integrated the **Meta NLLB-200 (200+ Languages)** model into the **AI Models** tab under Settings, enabling 1-click model download, deletion, storage inspection, and active status tracking.
+- **Modernized Themed Dialogs & Confirmation Modals**:
+  - Replaced all default browser/OS popup dialogs (`window.confirm` and `window.alert`) with custom glassmorphic modals featuring the app logo, danger/warning icon badges, specific model details & size breakdown, and themed action buttons matching Dark & Light themes.
+- **Refined Suggestions Sidebar & Non-Overlapping Toggle**:
+  - Streamlined the suggestions panel toggle into a slim, compact handle that eliminates card overlap and keeps the interface clean and minimal.
+- **Modern Studio Dashboard Hub**:
+  - Added a glassmorphic **Studio Dashboard** accessible at any time by clicking the top sidebar app icon or the TitleBar brand.
+  - Interactive feature cards for all studios (Grammar Editor, Creative Writing, Neural Translation, Deep Analysis, AI & Plagiarism Detector, AI Models & Settings) with vibrant gradients, feature badges, and 1-click launch actions.
+  - Live system status indicators displaying 100% on-device privacy guarantee, local neural core vs heuristic engine status, and active hardware GPU acceleration.
+- **Window Management IPC Layer**:
+  - Added Electron IPC handlers and preload bridges for `window-minimize`, `window-maximize`, `window-close`, `window-is-maximized`, and `window-maximized-change`.
+
+## [1.2.0] - 2026-08-21
+
+### Added
+- **100% Offline Neural Translation Studio**:
+  - Added a dedicated **Translation Page** (`TranslationPage.tsx`) accessible via the new `Languages` icon in the main sidebar.
+  - Powered by **Meta's NLLB-200 Distilled (600M Q4 Quantized)** (`Xenova/nllb-200-distilled-600M`, ~310 MB), supporting on-device translation across **200+ global languages** with zero internet connection or external API keys.
+  - **Dual-Pane Interface**: Split source and target workbenches featuring live character/word counters, sample text loader, and keyboard shortcut (`Ctrl + Enter` / `Cmd + Enter`) execution.
+  - **Searchable Language Selector**: Fast-pick pills for top languages (English, Spanish, French, German, Hindi) plus a searchable dropdown supporting 35+ major languages with localized native names.
+  - **One-Click Editor Integration**: Added an **"Open in Editor"** button (`PenTool`) to instantly transfer translated text into the main Grammar Studio workspace.
+  - **Offline Translation Model Management**: Added an **Offline Neural Translation Models** management card under Settings for downloading and managing model storage.
+- **AI Detector Engine Awareness & Inline Download**:
+  - Added a contextual tip banner on the Plagiarism & AI Detector page shown post-scan when running on the built-in statistical NLP engine (0 MB required).
+  - Added a 1-click **"Download Neural Model (~125 MB)"** button with live progress tracking directly inside the results panel.
+
+### Fixed
+- **Translation Language Bar Layout**:
+  - Re-architected the language selector bar into a clean, balanced grid to eliminate horizontal overflow and resolve redundant `English (English)` label formatting.
+
+## [1.1.2] - 2026-08-21
+
+### Added
+- **ModernBERT RAID AI Detector Integration**:
+  - Upgraded the AI detection model to **ModernBERT RAID AI Detector (Q4 Quantized)** (`onnx-community/modernbert-ai-detection-raid-mage-ONNX`) for state-of-the-art accuracy in detecting GPT-4o, Claude 3.5, Gemini, and Llama 3 texts.
+  - Reduced download size to ~144 MB via Q4 quantization for faster downloads and lower memory overhead.
+
+### Fixed
+- **Model Download Reliability**:
+  - Fixed an edge case where the download manager would freeze at 99% upon completion. The UI now reliably unlocks to `100% (Installed & Ready)`.
+  - Fixed partial download deletion logic, allowing model downloads to be paused or interrupted and smoothly resumed from where they left off without restarting from 0%.
+- **Offline Plagiarism Detection Accuracy**:
+  - Rewrote the offline reference document comparison algorithm to use **N-Gram Containment Measurement** instead of Jaccard Similarity. Sentences are now accurately flagged if a significant percentage (≥ 45%) of their structure is contained within the reference document, resolving false negatives on large documents.
+- **Report Modal UI Clean-up**:
+  - Streamlined the Official Originality Report UI by removing redundant "Copy JSON", "Print", and "Save HTML" actions.
+  - Centered and perfectly aligned the primary "Export PDF Document" button icon with its text label.
+- **Settings UI State**:
+  - Fixed a visual bug in the Settings page where un-downloaded models would incorrectly display an "Active" badge and styling outline if they were set as the default preference.
+
+## [1.1.1] - 2026-08-21
+
+### Added
+- **Optimized Multi-Strategy Online Search Engine**:
+  - Added concurrent non-blocking search execution with `Promise.allSettled`, reducing online plagiarism verification latency from ~8s to ~1.5s.
+  - Added an in-memory LRU query cache (capped at 100 entries, ~50 KB RAM footprint) to eliminate redundant network roundtrips during repeated document edits.
+  - Added a secondary **Wikipedia Open Search API** fallback for academic and encyclopedic verification when web endpoints are rate-limited.
+  - Added automatic search result URL deduplication and 500 KB response payload guards for ultra-lightweight memory management.
+
+### Fixed
+- **AI Detector Model Download Repositories**:
+  - Replaced unreachable Hugging Face repositories with verified public ONNX Community models: **TMR AI Text Detector** (`onnx-community/tmr-ai-text-detector-ONNX`) and **RoBERTa OpenAI Detector** (`onnx-community/roberta-base-openai-detector-ONNX`).
+  - Configured direct HTTPS chunk streaming (`directFiles`) for all detector models, resolving 401 Unauthorized / missing `tokenizer.json` download errors and enabling resilient download resume capabilities.
+
+## [1.1.0] - 2026-08-20
+
+### Added
+- **Plagiarism & AI Content Detector Suite**:
+  - Added a dedicated **Plagiarism & AI Content Detector** tab and page (`DetectorPage.tsx`) accessible via the new `ShieldCheck` icon in the main sidebar.
+  - **Statistical NLP AI Detection Engine**: Computes word entropy, average perplexity, and document-level/sentence-level burstiness index (sentence length variation) with 100% offline privacy.
+  - **Dual-Mode Plagiarism Scanner**:
+    - **100% Offline Mode (Default)**: Detects internal structural self-duplication and includes a **Local Reference Document Comparator** to cross-verify text against local files (`.txt`, `.md`, `.docx`, etc.).
+    - **Online Web Mode (Toggleable)**: Extracts semantic n-gram shingles to scan public search indexes for matching web snippets, titles, and exact source URLs.
+  - **Interactive Sentence Heatmap**: Visual color-coded highlighting (`Human`, `Mixed`, `Likely AI`, `Heavy AI`) with click-to-inspect sentence cards detailing word count, perplexity, burstiness, and classification explanations.
+  - **Visual Score Gauges & Metric Cards**: Real-time dials for **Originality Score (%)**, **AI Probability (%)**, and **Plagiarism Risk (%)**, alongside Reading Level, Lexical Diversity (TTR), and Word Count.
+
+- **Local Neural AI Detection Backend**:
+  - Integrated local neural network text classification into worker threads via `@xenova/transformers` (`aiWorker.ts` and `AIGrammarEngine.ts`).
+  - **Hybrid Ensemble Scoring**: Blends local neural model softmax confidence with statistical NLP entropy calculations for maximum accuracy when a neural model is downloaded.
+  - Added active neural model indicator badges in the Detector dashboard.
+
+- **Dedicated AI Detector Models Category in Settings**:
+  - Added **AI Content & Plagiarism Detector Models** category in `SettingsPage.tsx` and `ModelManager.ts` with distinctive amber accents (`.active-detector`, `.btn-detector-glow`).
+  - Integrated downloadable local models:
+    - **TMR AI Text Detector (`tmr-ai-detector`)**: 125M parameter neural network (~125 MB) trained on modern LLM-generated texts for high-accuracy offline AI classification.
+    - **RoBERTa OpenAI Detector (`roberta-openai-detector`)**: OpenAI's 125M parameter neural network (~125 MB) fine-tuned for Human vs. AI text detection.
+  - One-click model downloading with real-time progress bars, deletion, active model radio selection, and local folder inspection.
+
+- **Enterprise Audit Report Generator & One-Click Export**:
+  - Added `ReportModal.tsx` displaying an official **Certificate of Originality & AI Content Verification Report** complete with verification ID, document timestamp, score dials, and full annotated transcript.
+  - **PDF Export**: Generates print-ready PDFs directly via Electron's native `webContents.printToPDF()`.
+  - **HTML Export**: Saves standalone, fully styled HTML report documents for external sharing.
+  - **JSON & Direct Print**: Instant clipboard export of structured audit data and native print dialogue support.
+
+## [1.0.2] - 2026-08-20
+
+### Added
+- **Dedicated About Page Component**:
+  - Refactored the About view into a dedicated, modular `AboutPage` component with responsive glassmorphism card styling.
+  - Added direct quick action buttons: **Report Bug** (linking to GitHub Issues) and **GitHub Repository** link.
+  - Added native external link opening handler in Electron IPC (`open-external-url`) and `webContents.setWindowOpenHandler` to ensure all external links launch safely in the user's default system browser.
+  - Added key feature badges for offline privacy, hardware acceleration (DirectML/WebGPU), and instant multi-layered grammar engines.
+
+### Changed
+- **Editor Analysis Sidebar Startup State**:
+  - Changed the initial state of the collapsible analysis suggestions sidebar in the Editor (`EditorPage`) to start closed by default upon app startup, providing an unobstructed writing workspace.
+  - Preserved auto-expansion behavior when checking text or clicking the floating chevron toggle button.
+
+### Fixed
+- **Deep Analysis Empty State Styling**:
+  - Fixed background and border styling on the Deep Analysis empty results container (`.pro-analysis-empty`) to prevent unwanted card overlays in light and dark themes.
+- **Light Theme Color Adjustments**:
+  - Polished Light Mode aesthetics for the About page action buttons, version badge, feature items, and analysis view elements.
+
 ## [1.0.0] - 2026-08-16
 
 ### Added

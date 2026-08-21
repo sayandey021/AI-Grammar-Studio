@@ -39,6 +39,16 @@ parentPort.on('message', async (message: any) => {
         parentPort?.postMessage({ id, type: 'success' });
         break;
 
+      case 'detectAi':
+        const detectResult = await aiEngine.detectAi(payload.sentences, payload.modelId);
+        parentPort?.postMessage({ id, type: 'success', data: detectResult });
+        break;
+
+      case 'translate':
+        const translationResult = await aiEngine.translate(payload.text, payload.sourceLang, payload.targetLang, payload.modelId);
+        parentPort?.postMessage({ id, type: 'success', data: translationResult });
+        break;
+
       case 'downloadModel':
         const downloadResult = await modelManager.downloadModel(payload.modelId, (progress) => {
           parentPort?.postMessage({ id, type: 'download-progress', progress, modelId: payload.modelId });

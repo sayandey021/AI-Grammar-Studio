@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Cpu, Zap, Check, X, AlertTriangle, ShieldCheck, Sparkles } from 'lucide-react';
 import appLogo from '../assets/logo.png';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface SettingsPageProps {
   settings: any;
@@ -102,6 +104,46 @@ const AVAILABLE_MODELS = [
     sizeMB: 1400,
     desc: 'Alibaba\'s Qwen 3 1.7B — higher quality creative writing and reasoning with thinking support (~1.4GB).',
     supportsThinking: true
+  },
+
+  // ── AI & Plagiarism Detector Models ──────────────────────────────────────
+  {
+    id: 'tmr-ai-detector',
+    category: 'detector',
+    name: 'TMR AI Text Detector',
+    parameters: '125M',
+    paramsCount: 0.125,
+    sizeMB: 125,
+    desc: 'Modern neural AI content classifier trained with Focal Loss on diverse LLM-generated texts (~125MB).'
+  },
+  {
+    id: 'roberta-openai-detector',
+    category: 'detector',
+    name: 'RoBERTa OpenAI Detector',
+    parameters: '125M',
+    paramsCount: 0.125,
+    sizeMB: 125,
+    desc: 'Official RoBERTa ONNX neural detector fine-tuned for Human vs AI-generated text classification (~125MB).'
+  },
+  {
+    id: 'modernbert-ai-detector',
+    category: 'detector',
+    name: 'ModernBERT RAID AI Detector',
+    parameters: '149M',
+    paramsCount: 0.149,
+    sizeMB: 144,
+    desc: 'State-of-the-art ModernBERT (Q4) fine-tuned on the RAID & MAGE benchmarks for detecting GPT-4o, Claude 3.5, Gemini, & Llama 3 (~144MB).'
+  },
+
+  // ── Translation Models (Meta NLLB-200 200+ Languages) ─────────────────────
+  {
+    id: 'nllb-200-distilled-600m',
+    category: 'translation',
+    name: 'Meta NLLB-200 (200+ Languages)',
+    parameters: '600M',
+    paramsCount: 0.6,
+    sizeMB: 875,
+    desc: 'Meta\'s NLLB-200 distilled 600M model. High-precision direct translation across 200+ global languages on-device with zero telemetry (~875MB).'
   }
 ];
 
@@ -229,6 +271,29 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
   const [newWords, setNewWords] = useState('');
   const [dictSearch, setDictSearch] = useState('');
 
+  // Themed confirmation and alert modals
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    model: any | null;
+    isDeleting: boolean;
+  }>({
+    isOpen: false,
+    model: null,
+    isDeleting: false
+  });
+
+  const [alertModalState, setAlertModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'warning' | 'info' | 'danger';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'warning'
+  });
+
   useEffect(() => {
     const loadStatuses = async () => {
       if (!window.api?.getModelStatus) return;
@@ -284,8 +349,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
     } catch (error: any) {
       console.error('Download failed:', error);
       const msg = error?.message || 'Please check your internet connection and try again.';
-      // Show retry-friendly alert
-      alert(`Download interrupted: ${msg}\n\nClick "Download Model" again to resume from where it stopped.`);
+      setAlertModalState({
+        isOpen: true,
+        title: 'Download Interrupted',
+        message: `${msg}\n\nYou can click "Download Model" again to resume directly from where it stopped.`,
+        type: 'warning'
+      });
       setModelStatuses(prev => ({
         ...prev,
         [modelId]: { ...prev[modelId], downloading: false, progress: 0 }
@@ -293,16 +362,28 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
     }
   };
 
-  const handleDelete = async (modelId: string) => {
-    if (!window.confirm(`Are you sure you want to delete this model?`)) {
-      return;
-    }
+  const promptDelete = (model: any) => {
+    setDeleteModalState({
+      isOpen: true,
+      model,
+      isDeleting: false
+    });
+  };
+
+  const confirmDelete = async () => {
+    const model = deleteModalState.model;
+    if (!model) return;
+    const modelId = model.id;
+    setDeleteModalState(prev => ({ ...prev, isDeleting: true }));
 
     if (localSettings.activeGrammarModelId === modelId) {
       handleChange('activeGrammarModelId', 'flan-t5-base');
     }
     if (localSettings.activeCreativeModelId === modelId) {
       handleChange('activeCreativeModelId', 'qwen3-0.6b');
+    }
+    if (localSettings.activeTranslationModelId === modelId) {
+      handleChange('activeTranslationModelId', 'nllb-200-distilled-600m');
     }
 
     try {
@@ -317,6 +398,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
       }
     } catch (error) {
       console.error('Delete failed:', error);
+    } finally {
+      setDeleteModalState({ isOpen: false, model: null, isDeleting: false });
     }
   };
 
@@ -450,70 +533,110 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
             </div>
 
             {gpuInfo && (
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                borderRadius: '12px',
-                padding: '14px 18px',
-                marginBottom: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px'
-              }}>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Detected Graphics Hardware</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              <div className="gpu-detection-banner">
+                <div className="gpu-banner-icon-box">
+                  <Cpu size={20} color="#818cf8" />
+                </div>
+                <div className="gpu-banner-content">
+                  <div className="gpu-banner-header">
+                    <span className="gpu-banner-title">Detected Graphics Hardware</span>
+                    {gpuInfo.hasGpu && (
+                      <span className="gpu-status-pill online">
+                        <span className="gpu-status-dot online" />
+                        Hardware Acceleration Available
+                      </span>
+                    )}
+                  </div>
+                  <div className="gpu-banner-list">
                     {gpuInfo.devices && gpuInfo.devices.length > 0 ? (
                       gpuInfo.devices.map((d: any, idx: number) => (
-                        <span key={idx} style={{ color: '#818cf8', fontWeight: 500 }}>
-                          {idx > 0 ? ' • ' : ''}{d.model}
-                        </span>
+                        <div key={idx} className="gpu-device-item">
+                          <span className="gpu-device-bullet" />
+                          <span className="gpu-device-name">{d.model}</span>
+                          {d.memoryMB ? (
+                            <span className="gpu-device-vram">({d.memoryMB >= 1024 ? `${(d.memoryMB / 1024).toFixed(0)} GB` : `${d.memoryMB} MB`} VRAM)</span>
+                          ) : null}
+                          <span className={`gpu-vendor-tag ${d.type}`}>
+                            {d.type === 'nvidia' ? 'CUDA / DirectML' : d.type === 'amd' ? 'DirectML (DirectX 12)' : d.type === 'intel' ? 'DirectML' : 'GPU'}
+                          </span>
+                        </div>
                       ))
                     ) : (
-                      <span>Multi-Core CPU WASM Engine Active</span>
+                      <div className="gpu-device-item fallback">
+                        <span className="gpu-device-bullet fallback" />
+                        <span>No discrete GPU detected • Running on multi-core CPU (WASM)</span>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
               {[
                 {
                   id: 'auto',
                   name: 'Auto Hardware (Recommended)',
                   badge: 'Recommended',
                   badgeColor: '#10b981',
-                  desc: 'Automatically leverages NVIDIA CUDA or AMD DirectML GPU with CPU fallback.'
+                  desc: 'Automatically selects the fastest detected GPU with safe CPU fallback.',
+                  isSupported: true,
+                  supportLabel: 'Optimal & Recommended',
+                  activeResolution: gpuInfo?.hasAmd 
+                    ? `AMD DirectML (${gpuInfo.devices?.find((d: any) => d.type === 'amd')?.model || 'Radeon GPU'})`
+                    : gpuInfo?.hasNvidia 
+                    ? `NVIDIA CUDA (${gpuInfo.devices?.find((d: any) => d.type === 'nvidia')?.model || 'NVIDIA GPU'})`
+                    : gpuInfo?.hasIntel 
+                    ? `Intel DirectML (${gpuInfo.devices?.find((d: any) => d.type === 'intel')?.model || 'Intel GPU'})`
+                    : 'System CPU (WASM Multi-Core)'
                 },
                 {
                   id: 'cuda',
                   name: 'NVIDIA GPU (CUDA)',
                   badge: 'NVIDIA',
                   badgeColor: '#76b900',
-                  desc: 'High-speed hardware acceleration for NVIDIA GeForce GTX/RTX GPUs.'
+                  desc: 'High-speed hardware acceleration for NVIDIA GeForce GTX/RTX GPUs.',
+                  isSupported: !!gpuInfo?.hasNvidia,
+                  supportLabel: gpuInfo?.hasNvidia ? 'Supported & Detected' : 'Not Supported (No NVIDIA GPU)',
+                  activeResolution: gpuInfo?.devices?.find((d: any) => d.type === 'nvidia')?.model
                 },
                 {
                   id: 'directml',
                   name: 'AMD GPU (DirectML)',
                   badge: 'AMD',
                   badgeColor: '#ed1c24',
-                  desc: 'DirectX 12 DirectML acceleration for AMD Radeon graphics.'
+                  desc: 'DirectX 12 DirectML acceleration for AMD Radeon graphics.',
+                  isSupported: !!gpuInfo?.hasAmd || (gpuInfo?.devices && gpuInfo.devices.length > 0 && !gpuInfo.hasNvidia),
+                  supportLabel: (gpuInfo?.hasAmd || (gpuInfo?.devices && gpuInfo.devices.length > 0 && !gpuInfo.hasNvidia)) ? 'Supported & Detected' : 'Not Supported (No AMD GPU)',
+                  activeResolution: gpuInfo?.devices?.find((d: any) => d.type === 'amd')?.model || (gpuInfo?.devices?.[0]?.model)
                 },
                 {
                   id: 'cpu',
                   name: 'System CPU (WASM)',
                   badge: 'Universal',
                   badgeColor: '#6366f1',
-                  desc: 'Executes inference across CPU cores using WASM multi-threading.'
+                  desc: 'Executes inference across CPU cores using WASM multi-threading.',
+                  isSupported: true,
+                  supportLabel: 'Universal Support (All CPUs)',
+                  activeResolution: 'Multi-Threaded CPU Backend'
                 }
               ].map(dev => {
                 const isSelected = (localSettings.executionDevice || 'auto') === dev.id;
                 return (
                   <div
                     key={dev.id}
-                    className={`hardware-option-card ${isSelected ? 'selected' : ''}`}
-                    onClick={() => handleChange('executionDevice', dev.id)}
+                    className={`hardware-option-card ${isSelected ? 'selected' : ''} ${!dev.isSupported ? 'unsupported' : ''}`}
+                    onClick={() => {
+                      if (!dev.isSupported) {
+                        setAlertModalState({
+                          isOpen: true,
+                          title: 'Hardware Acceleration Warning',
+                          message: `Your system does not appear to have the required hardware for ${dev.name}.\n\nThe engine will automatically fall back to CPU multi-threading if initialization fails.`,
+                          type: 'warning'
+                        });
+                      }
+                      handleChange('executionDevice', dev.id);
+                    }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -539,6 +662,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
                       <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', color: 'var(--text-primary)' }}>{dev.name}</h4>
                       <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{dev.desc}</p>
                     </div>
+
+                    <div className="hardware-card-status-strip">
+                      <div className={`hardware-support-badge ${dev.isSupported ? 'supported' : 'unsupported'}`}>
+                        {dev.isSupported ? <Check size={12} /> : <X size={12} />}
+                        <span>{dev.supportLabel}</span>
+                      </div>
+
+                      {isSelected && dev.activeResolution && (
+                        <div className="hardware-active-runtime">
+                          <Zap size={11} />
+                          <span>Using: {dev.activeResolution}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -559,7 +696,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {AVAILABLE_MODELS.filter(m => m.category === 'grammar').map(model => {
                   const status = modelStatuses[model.id] || { downloaded: false, downloading: false, progress: 0 };
-                  const isActive = (localSettings.activeGrammarModelId || 'flan-t5-base') === model.id;
+                  const isActive = (localSettings.activeGrammarModelId || 'flan-t5-base') === model.id && status.downloaded;
 
                   return (
                     <div
@@ -630,7 +767,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
                           {status.downloaded && (
                             <button
                               className="btn-sm-action btn-outline-danger"
-                              onClick={(e) => { e.stopPropagation(); handleDelete(model.id); }}
+                              onClick={(e) => { e.stopPropagation(); promptDelete(model); }}
                             >
                               Delete
                             </button>
@@ -659,7 +796,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {AVAILABLE_MODELS.filter(m => m.category === 'creative').map(model => {
                   const status = modelStatuses[model.id] || { downloaded: false, downloading: false, progress: 0 };
-                  const isActive = (localSettings.activeCreativeModelId || 'qwen3-0.6b') === model.id;
+                  const isActive = (localSettings.activeCreativeModelId || 'qwen3-0.6b') === model.id && status.downloaded;
 
                   return (
                     <div
@@ -735,7 +872,206 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
                           {status.downloaded && (
                             <button
                               className="btn-sm-action btn-outline-danger"
-                              onClick={(e) => { e.stopPropagation(); handleDelete(model.id); }}
+                              onClick={(e) => { e.stopPropagation(); promptDelete(model); }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                          <button
+                            className="btn-sm-action btn-outline-subtle"
+                            onClick={(e) => { e.stopPropagation(); handleOpenLocation(model.id); }}
+                          >
+                            Folder
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {/* AI & Plagiarism Detector Models */}
+            <div className="settings-card">
+              <div className="settings-card-header">
+                <h3 className="settings-card-title" style={{ color: '#f59e0b' }}>AI Content & Plagiarism Detector Models</h3>
+                <p className="settings-card-desc">Local neural networks powering sentence-level AI detection and verification.</p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {AVAILABLE_MODELS.filter(m => m.category === 'detector').map(model => {
+                  const status = modelStatuses[model.id] || { downloaded: false, downloading: false, progress: 0 };
+                  const isActive = (localSettings.activeDetectorModelId || 'tmr-ai-detector') === model.id && status.downloaded;
+
+                  return (
+                    <div
+                      key={model.id}
+                      className={`model-item-card ${isActive ? 'active-detector' : ''}`}
+                      onClick={() => {
+                        if (status.downloaded && !isActive) {
+                          handleChange('activeDetectorModelId', model.id);
+                        }
+                      }}
+                    >
+                      <div className="model-card-header">
+                        <div>
+                          <div className="model-title-row">
+                            <h4 className="model-name">{model.name}</h4>
+                            {(model as any).parameters && (
+                              <span className="model-params-badge">{(model as any).parameters}</span>
+                            )}
+                            <span className="model-size-badge">
+                              {status.downloaded && (status as any).sizeMB > 0
+                                ? `${(status as any).sizeMB} MB on disk`
+                                : `~${model.sizeMB} MB estimated`
+                              }
+                            </span>
+                            {isActive && <span className="badge-active-tag badge-active-detector">Active</span>}
+                          </div>
+                          <p className="model-desc-text">{model.desc}</p>
+                        </div>
+                        <input
+                          type="radio"
+                          name="activeDetectorModel"
+                          checked={isActive}
+                          onChange={() => handleChange('activeDetectorModelId', model.id)}
+                          disabled={!status.downloaded}
+                          style={{ cursor: status.downloaded ? 'pointer' : 'not-allowed', accentColor: '#f59e0b' }}
+                        />
+                      </div>
+
+                      {status.downloading && (
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                            <span>Downloading weights...</span>
+                            <span>{status.progress}%</span>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.1)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ background: '#f59e0b', height: '100%', width: `${status.progress}%`, transition: 'width 0.2s' }} />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="model-action-bar">
+                        <div className="model-status-indicator">
+                          <span className={`status-dot ${status.downloading ? 'downloading' : status.downloaded ? 'installed' : 'missing'}`} />
+                          <span style={{ color: status.downloaded ? '#10b981' : status.downloading ? '#3b82f6' : '#64748b' }}>
+                            {status.downloading ? 'Downloading...' : status.downloaded ? 'Installed & Ready' : 'Not Downloaded'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {!status.downloaded && !status.downloading && (
+                            <button
+                              className="btn-sm-action btn-detector-glow"
+                              onClick={(e) => { e.stopPropagation(); handleDownload(model.id); }}
+                            >
+                              Download Model
+                            </button>
+                          )}
+                          {status.downloaded && (
+                            <button
+                              className="btn-sm-action btn-outline-danger"
+                              onClick={(e) => { e.stopPropagation(); promptDelete(model); }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                          <button
+                            className="btn-sm-action btn-outline-subtle"
+                            onClick={(e) => { e.stopPropagation(); handleOpenLocation(model.id); }}
+                          >
+                            Folder
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Offline Translation Models */}
+            <div className="settings-card">
+              <div className="settings-card-header">
+                <h3 className="settings-card-title" style={{ color: '#6366f1' }}>Offline Neural Translation Models</h3>
+                <p className="settings-card-desc">On-device multilingual neural machine translation models powering the Translation page.</p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {AVAILABLE_MODELS.filter(m => m.category === 'translation').map(model => {
+                  const status = modelStatuses[model.id] || { downloaded: false, downloading: false, progress: 0 };
+                  const isActive = (localSettings.activeTranslationModelId || 'nllb-200-distilled-600m') === model.id && status.downloaded;
+
+                  return (
+                    <div
+                      key={model.id}
+                      className={`model-item-card ${isActive ? 'active-translation' : ''}`}
+                      onClick={() => {
+                        if (status.downloaded && !isActive) {
+                          handleChange('activeTranslationModelId', model.id);
+                        }
+                      }}
+                    >
+                      <div className="model-card-header">
+                        <div>
+                          <div className="model-title-row">
+                            <h4 className="model-name">{model.name}</h4>
+                            {(model as any).parameters && (
+                              <span className="model-params-badge">{(model as any).parameters}</span>
+                            )}
+                            <span className="model-size-badge">
+                              {status.downloaded && (status as any).sizeMB > 0
+                                ? `${(status as any).sizeMB} MB on disk`
+                                : `~${model.sizeMB} MB estimated`
+                              }
+                            </span>
+                            {isActive && <span className="badge-active-tag badge-active-translation">Active</span>}
+                          </div>
+                          <p className="model-desc-text">{model.desc || 'Multi-language direct translation across 200+ global languages with zero telemetry.'}</p>
+                        </div>
+                        <input
+                          type="radio"
+                          name="activeTranslationModel"
+                          checked={isActive}
+                          onChange={() => handleChange('activeTranslationModelId', model.id)}
+                          disabled={!status.downloaded}
+                          style={{ cursor: status.downloaded ? 'pointer' : 'not-allowed', accentColor: '#6366f1' }}
+                        />
+                      </div>
+
+                      {status.downloading && (
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                            <span>Downloading weights...</span>
+                            <span>{status.progress}%</span>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.1)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ background: '#6366f1', height: '100%', width: `${status.progress}%`, transition: 'width 0.2s' }} />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="model-action-bar">
+                        <div className="model-status-indicator">
+                          <span className={`status-dot ${status.downloading ? 'downloading' : status.downloaded ? 'installed' : 'missing'}`} />
+                          <span style={{ color: status.downloaded ? '#10b981' : status.downloading ? '#3b82f6' : '#64748b' }}>
+                            {status.downloading ? 'Downloading...' : status.downloaded ? 'Installed & Ready' : 'Not Downloaded'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {!status.downloaded && !status.downloading && (
+                            <button
+                              className="btn-sm-action btn-translation-glow"
+                              onClick={(e) => { e.stopPropagation(); handleDownload(model.id); }}
+                            >
+                              Download Model
+                            </button>
+                          )}
+                          {status.downloaded && (
+                            <button
+                              className="btn-sm-action btn-outline-danger"
+                              onClick={(e) => { e.stopPropagation(); promptDelete(model); }}
                             >
                               Delete
                             </button>
@@ -828,6 +1164,41 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
         )}
 
       </div>
+
+      {/* Modernized Delete Confirmation Dialog */}
+      <ConfirmModal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => setDeleteModalState({ isOpen: false, model: null, isDeleting: false })}
+        onConfirm={confirmDelete}
+        title="Delete Model?"
+        message={
+          deleteModalState.model ? (
+            <>
+              Are you sure you want to delete <strong>{deleteModalState.model.name}</strong>?
+              <br /><br />
+              This will remove all downloaded weights (<strong>{modelStatuses[deleteModalState.model.id]?.sizeMB || deleteModalState.model.sizeMB} MB</strong>) from your local drive. You can re-download this model anytime.
+            </>
+          ) : (
+            'Are you sure you want to delete this model?'
+          )
+        }
+        confirmText="Delete Model"
+        cancelText="Cancel"
+        type="danger"
+        confirmLoading={deleteModalState.isDeleting}
+      />
+
+      {/* Modernized Alert Dialog */}
+      <ConfirmModal
+        isOpen={alertModalState.isOpen}
+        onClose={() => setAlertModalState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={() => setAlertModalState(prev => ({ ...prev, isOpen: false }))}
+        title={alertModalState.title}
+        message={alertModalState.message}
+        confirmText="Got It"
+        cancelText=""
+        type={alertModalState.type || 'warning'}
+      />
     </div>
   );
 };

@@ -15,7 +15,8 @@ import {
   Zap,
   CornerDownLeft,
   Search,
-  ChevronDown
+  ChevronDown,
+  Globe
 } from 'lucide-react';
 
 interface TranslationPageProps {
@@ -105,14 +106,14 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
   const sourceDropdownRef = useRef<HTMLDivElement>(null);
   const targetDropdownRef = useRef<HTMLDivElement>(null);
 
-  const modelId = 'nllb-200-distilled-600m';
+  const activeModelId = 'm2m100-418m';
 
   // Load and subscribe to Model Status changes
   useEffect(() => {
     const checkStatus = async () => {
       if ((window as any).api?.getModelStatus) {
         try {
-          const st = await (window as any).api.getModelStatus(modelId);
+          const st = await (window as any).api.getModelStatus(activeModelId);
           setModelStatus(st || { downloaded: false, downloading: false, progress: 0 });
         } catch {
           setModelStatus({ downloaded: false, downloading: false, progress: 0 });
@@ -121,13 +122,12 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
     };
     checkStatus();
 
-    // Check status periodically while active
     const interval = setInterval(checkStatus, 2500);
 
     let unsubProgress: any = null;
     if ((window as any).api?.onModelProgress) {
       unsubProgress = (window as any).api.onModelProgress((mId: string, progress: number) => {
-        if (mId === modelId) {
+        if (mId === activeModelId) {
           setModelStatus((prev: any) => ({
             ...prev,
             downloading: progress > 0 && progress < 100,
@@ -145,7 +145,7 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
     let unsubDeleted: any = null;
     if ((window as any).api?.onModelDeleted) {
       unsubDeleted = (window as any).api.onModelDeleted((mId: string) => {
-        if (mId === modelId) {
+        if (mId === activeModelId) {
           setModelStatus({ downloaded: false, downloading: false, progress: 0 });
           setIsDownloadingModel(false);
           checkStatus();
@@ -158,7 +158,7 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
       if (unsubProgress) unsubProgress();
       if (unsubDeleted) unsubDeleted();
     };
-  }, [settings]);
+  }, [activeModelId, settings]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -179,8 +179,8 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
     setError(null);
     try {
       setModelStatus((prev: any) => ({ ...prev, downloading: true, progress: 0 }));
-      await (window as any).api?.downloadModel(modelId);
-      const st = await (window as any).api?.getModelStatus(modelId);
+      await (window as any).api?.downloadModel(activeModelId);
+      const st = await (window as any).api?.getModelStatus(activeModelId);
       setModelStatus(st);
     } catch (err: any) {
       setError(`Download failed: ${err?.message || 'Check network connection'}`);
@@ -194,7 +194,7 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
     if (!inputText.trim()) return;
 
     if (!modelStatus.downloaded) {
-      setError('Please download the Meta NLLB-200 translation model first.');
+      setError('Please download the Meta M2M-100 translation model first.');
       return;
     }
 
@@ -211,7 +211,7 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
         text: inputText,
         sourceLang,
         targetLang,
-        modelId
+        modelId: activeModelId
       });
 
       if (res?.translation) {
@@ -297,6 +297,9 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
       l.code.toLowerCase().includes(searchTarget.toLowerCase())
   );
 
+  const modelNameDisplay = 'Meta M2M-100 (100 Languages)';
+  const modelSizeDisplay = '~590 MB';
+
   return (
     <div className="page-content translation-page">
       {/* Header Banner */}
@@ -308,27 +311,30 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
           <div>
             <h1 className="translation-main-title">Offline Neural Translator</h1>
             <p className="translation-sub-title">
-              100% Private, On-Device Machine Translation • 35+ Languages
+              100% Private, On-Device Machine Translation • 38+ Languages
             </p>
           </div>
         </div>
 
-        <div
-          className={`translation-badge-pill ${modelStatus.downloaded ? 'online' : 'offline'}`}
-          title={modelStatus.downloaded ? 'Local Neural Model Online & Ready' : 'Local Model Offline - Weights Not Downloaded'}
-        >
-          <span className={`translation-status-dot ${modelStatus.downloaded ? 'online' : 'offline'}`} />
-          {modelStatus.downloaded ? (
-            <>
-              <Zap size={13} className="pill-status-icon" />
-              <span>Local AI Online</span>
-            </>
-          ) : (
-            <>
-              <AlertCircle size={13} className="pill-status-icon" />
-              <span>Local AI Offline</span>
-            </>
-          )}
+        {/* Status Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div
+            className={`translation-badge-pill ${modelStatus.downloaded ? 'online' : 'offline'}`}
+            title={modelStatus.downloaded ? `${modelNameDisplay} Online & Ready` : `${modelNameDisplay} Offline - Weights Not Downloaded`}
+          >
+            <span className={`translation-status-dot ${modelStatus.downloaded ? 'online' : 'offline'}`} />
+            {modelStatus.downloaded ? (
+              <>
+                <Zap size={13} className="pill-status-icon" />
+                <span>M2M-100 Ready</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle size={13} className="pill-status-icon" />
+                <span>Not Downloaded</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -340,9 +346,9 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
               <Cpu size={24} color="#818cf8" />
             </div>
             <div>
-              <h3>Neural Translation Model Required</h3>
+              <h3>Meta M2M-100 Model Required</h3>
               <p>
-                Download <strong>Meta NLLB-200 (600M Q4 Quantized, ~310 MB)</strong> once to enable completely offline translation across 200+ languages directly on your device.
+                Download <strong>Meta M2M-100 (418M Quantized, ~590 MB)</strong> to enable instant offline translation across 100 global languages directly on your device with complete privacy and MIT commercial permissibility.
               </p>
             </div>
           </div>
@@ -365,7 +371,7 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
                 disabled={isDownloadingModel}
               >
                 <Download size={16} />
-                <span>Download Model (~310 MB)</span>
+                <span>Download Model ({modelSizeDisplay})</span>
               </button>
             )}
           </div>
@@ -642,7 +648,7 @@ const TranslationPage: React.FC<TranslationPageProps> = ({ settings, onSendToEdi
 
             <div className="pane-footer target-footer">
               <span className="target-model-signature">
-                Powered by  Neural Engine
+                Powered by Meta M2M-100 Neural Engine
               </span>
             </div>
           </div>

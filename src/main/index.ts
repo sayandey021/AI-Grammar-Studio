@@ -207,6 +207,10 @@ app.on('window-all-closed', () => {
 });
 
 // IPC Handlers
+ipcMain.on('get-settings-sync', (event) => {
+  event.returnValue = storage.getSettings();
+});
+
 ipcMain.handle('get-settings', async () => {
   return storage.getSettings();
 });
@@ -472,8 +476,9 @@ ipcMain.handle('detect-plagiarism-ai', async (_, payload: { text: string; online
     const hasTmr = modelManager.isDownloaded('tmr-ai-detector');
     const hasRoberta = modelManager.isDownloaded('roberta-openai-detector');
     const hasModernBert = modelManager.isDownloaded('modernbert-ai-detector');
+    const hasToxicBert = modelManager.isDownloaded('toxic-bert');
 
-    if (hasTmr || hasRoberta || hasModernBert) {
+    if (hasTmr || hasRoberta || hasModernBert || hasToxicBert) {
       try {
         const rawSentences = splitSentencesWithOffsets(payload.text);
         if (rawSentences.length > 0) {

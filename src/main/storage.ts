@@ -40,12 +40,14 @@ export class Storage {
   public getSettings() {
     const settings = this.readJson(this.settingsFile, {
       theme: 'system',
+      defaultStartupPage: 'editor',
+      creativeTone: 'creative',
       defaultMode: 'quick',
       defaultTone: 'professional',
       customDictionary: [],
       activeGrammarModelId: 'flan-t5-base',
       activeCreativeModelId: 'qwen3-0.6b',
-      activeTranslationModelId: 'nllb-200-distilled-600m',
+      activeTranslationModelId: 'm2m100-418m',
       executionDevice: 'auto'
     });
     
@@ -57,13 +59,31 @@ export class Storage {
       this.writeJson(this.settingsFile, settings);
     }
 
-    if (!settings.activeCreativeModelId || settings.activeCreativeModelId.startsWith('flan-t5') || settings.activeCreativeModelId === 'qwen-0.5b') {
+    if (settings.activeGrammarModelId === 't5-large') {
+      settings.activeGrammarModelId = 'flan-t5-large';
+      this.writeJson(this.settingsFile, settings);
+    } else if (!settings.activeGrammarModelId || settings.activeGrammarModelId === 'coedit-large' || settings.activeGrammarModelId === 'vennify-t5-base' || settings.activeGrammarModelId === 'flan-t5-small') {
+      settings.activeGrammarModelId = 'flan-t5-base';
+      this.writeJson(this.settingsFile, settings);
+    }
+
+    if (!settings.activeCreativeModelId || settings.activeCreativeModelId.startsWith('flan-t5') || settings.activeCreativeModelId === 'qwen-0.5b' || settings.activeCreativeModelId === 'deepseek-r1-1.5b') {
       settings.activeCreativeModelId = 'qwen3-0.6b';
       this.writeJson(this.settingsFile, settings);
     }
 
-    if (!settings.activeTranslationModelId) {
-      settings.activeTranslationModelId = 'nllb-200-distilled-600m';
+    if (!settings.activeTranslationModelId || settings.activeTranslationModelId === 'nllb-200-distilled-600m' || settings.activeTranslationModelId.startsWith('opus')) {
+      settings.activeTranslationModelId = 'm2m100-418m';
+      this.writeJson(this.settingsFile, settings);
+    }
+
+    if (!settings.defaultStartupPage) {
+      settings.defaultStartupPage = 'editor';
+      this.writeJson(this.settingsFile, settings);
+    }
+
+    if (!settings.creativeTone) {
+      settings.creativeTone = 'creative';
       this.writeJson(this.settingsFile, settings);
     }
     

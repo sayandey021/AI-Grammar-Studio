@@ -12,13 +12,66 @@ import AboutPage from './pages/AboutPage';
 
 type Page = 'dashboard' | 'editor' | 'prompt' | 'translation' | 'analysis' | 'detector' | 'settings' | 'about';
 
+const getInitialSettings = (): any => {
+  try {
+    const sync = window.api?.getSettingsSync?.() || window.api?.initialSettings;
+    if (sync) return sync;
+    const cached = localStorage.getItem('app_settings');
+    if (cached) return JSON.parse(cached);
+  } catch (e) {
+    console.warn('Error reading initial settings:', e);
+  }
+  return null;
+};
+
+const getInitialStartupPage = (initialSettings?: any): Page => {
+  try {
+    const s = initialSettings || getInitialSettings();
+    if (s?.defaultStartupPage) {
+      return s.defaultStartupPage as Page;
+    }
+    const cachedPage = localStorage.getItem('app_startup_page');
+    if (cachedPage) return cachedPage as Page;
+    const cachedSettings = localStorage.getItem('app_settings');
+    if (cachedSettings) {
+      const parsed = JSON.parse(cachedSettings);
+      if (parsed?.defaultStartupPage) return parsed.defaultStartupPage as Page;
+    }
+  } catch (e) {
+    console.warn('Error reading initial startup page:', e);
+  }
+  return 'editor';
+};
+
+// Immediate theme application on script load to prevent theme flash
+try {
+  const init = getInitialSettings();
+  const initTheme = init?.theme || 'system';
+  const shouldBeDark = initTheme === 'dark' ? true : initTheme === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (shouldBeDark) {
+    document.documentElement.classList.add('dark-theme');
+  } else {
+    document.documentElement.classList.remove('dark-theme');
+  }
+} catch {}
+
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('editor');
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<any>(() => getInitialSettings());
+  const [currentPage, setCurrentPage] = useState<Page>(() => getInitialStartupPage(settings));
 
   useEffect(() => {
-    // Load settings on startup
-    window.api?.getSettings().then((s: any) => setSettings(s));
+    // Refresh / load settings on startup and keep local cache synchronized
+    window.api?.getSettings().then((s: any) => {
+      if (s) {
+        setSettings(s);
+        try {
+          localStorage.setItem('app_settings', JSON.stringify(s));
+          if (s.defaultStartupPage) {
+            localStorage.setItem('app_startup_page', s.defaultStartupPage);
+          }
+        } catch {}
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -61,11 +114,24 @@ function App() {
     setCurrentPage('editor');
   };
 
+  const handleSettingsChange = (newSettings: any) => {
+    setSettings(newSettings);
+    try {
+      localStorage.setItem('app_settings', JSON.stringify(newSettings));
+      if (newSettings?.defaultStartupPage) {
+        localStorage.setItem('app_startup_page', newSettings.defaultStartupPage);
+      }
+    } catch {}
+  };
+
   const handleQuickThemeToggle = () => {
     const isDark = document.documentElement.classList.contains('dark-theme');
     const newTheme = isDark ? 'light' : 'dark';
     const updatedSettings = { ...settings, theme: newTheme };
     setSettings(updatedSettings);
+    try {
+      localStorage.setItem('app_settings', JSON.stringify(updatedSettings));
+    } catch {}
     window.api?.saveSettings?.(updatedSettings);
   };
 
@@ -115,7 +181,7 @@ function App() {
           <DetectorPage settings={settings} />
         </div>
         <div style={{ display: currentPage === 'settings' ? 'flex' : 'none', flex: 1, width: '100%', height: '100%', overflow: 'hidden' }}>
-          <SettingsPage settings={settings} onSettingsChange={setSettings} />
+          <SettingsPage settings={settings} onSettingsChange={handleSettingsChange} />
         </div>
         <div style={{ display: currentPage === 'about' ? 'flex' : 'none', flex: 1, width: '100%', height: '100%', overflow: 'hidden' }}>
           <AboutPage />

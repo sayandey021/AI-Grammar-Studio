@@ -137,7 +137,7 @@ const AboutPage: React.FC = () => {
             </div>
             <div className="about-feature-text">
               <strong>Offline Neural Translation</strong>
-              <p>Meta NLLB-200 distilled architecture enabling high-accuracy translation across 35+ global languages offline.</p>
+              <p>Meta M2M-100 multilingual neural architecture enabling high-accuracy translation across 100 global languages offline with 100% commercial MIT permissibility.</p>
             </div>
           </div>
         </div>

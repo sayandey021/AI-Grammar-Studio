@@ -1,6 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+let initialSettings: any = null;
+try {
+  initialSettings = ipcRenderer.sendSync('get-settings-sync');
+} catch (e) {
+  console.warn('Failed to load initial settings synchronously:', e);
+}
+
 const api = {
+  initialSettings,
+  getSettingsSync: () => {
+    try {
+      return ipcRenderer.sendSync('get-settings-sync');
+    } catch {
+      return initialSettings;
+    }
+  },
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
   getGpuInfo: () => ipcRenderer.invoke('get-gpu-info'),

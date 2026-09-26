@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-09-24
+
+### Added
+- **Flan-T5 Large (770M) Commercial-Grade Grammar Engine**:
+  - Upgraded the high-capacity grammar correction model to Google's instruction-tuned **Flan-T5 Large** (`dmmagdal/flan-t5-large-onnx-js-quantized`), delivering superior grammatical accuracy, context-aware punctuation, and zero-shot correction under full **Apache 2.0 commercial licensing**.
+  - Integrated INT8 quantized ONNX weights (~825 MB) with optimized memory footprint for fast CPU and DirectML inference.
+- **Universal Multilingual Neural Translation (Meta M2M-100)**:
+  - Integrated **Meta M2M-100 (418M)** as the dedicated offline neural translation engine, enabling direct many-to-many translation across 100+ languages without relying on intermediate English-pivot pairs.
+  - Implemented quantized ONNX streaming weights (~590 MB) with full support for auto-source language detection and target locale tokenization.
+- **Next-Gen AI Detection & Content Safety Suite**:
+  - Integrated **ModernBERT RAID AI Text Detector** (`onnx-community/modernbert-ai-detection-raid-mage-ONNX`) for state-of-the-art detection across GPT-4o, Claude 3.5, Gemini, and Llama 3 generated text.
+  - Added multi-model detector support with **TMR AI Text Detector** and **RoBERTa OpenAI Detector**.
+  - Added **Toxic-BERT Safety Classifier** (`Xenova/toxic-bert`) to audit text for toxicity, profanity, and aggressive tone.
+- **Expanded Creative Writing & Reasoning Models**:
+  - Added support for next-generation SLMs with `<think>` tag reasoning inspection, including **Qwen 3 (0.6B & 1.7B)**.
+  - Added **Google Gemma 3 (1.0B)** and **Meta Llama 3.2 (1.2B)** for expressive paraphrasing, tone shifting, and creative text generation.
+
+### Changed
+- **Direct HTTPS Chunk Streaming Download Manager**:
+  - Replaced high-heap pipeline downloads with dedicated multi-file HTTPS streaming, reducing memory consumption during model downloads and preventing out-of-memory crashes on low-spec hardware.
+- **Commercial License Alignment**:
+  - Audited all available local models in the AI Models Hub to ensure clear Apache 2.0, MIT, and commercial-friendly licensing attribution across the interface.
+- **Enhanced Settings & AI Model Management Hub**:
+  - Updated model catalog with granular parameter badges, quantization identifiers, and real-time disk usage indicators.
+
+
+## [1.3.0] - 2026-08-23
+
+### Added
+- **Creative Studio Default Tone Setting (Settings)**:
+  - Added a **Creative Studio Tone** selector in the **Appearance & Defaults** section under [SettingsPage.tsx](file:///c:/Users/sayan/Documents/GitHub/AI%20Grammer%20Studio/src/renderer/src/pages/SettingsPage.tsx) with 3 selectable tones: `Creative`, `Casual`, and `Professional`.
+  - Wired tone preference directly into [AIGrammarEngine.ts](file:///c:/Users/sayan/Documents/GitHub/AI%20Grammer%20Studio/src/main/grammar/AIGrammarEngine.ts) prompt conditioning and [PromptPage.tsx](file:///c:/Users/sayan/Documents/GitHub/AI%20Grammer%20Studio/src/renderer/src/pages/PromptPage.tsx) active canvas header.
+- **Configurable Default Startup Page (Settings)**:
+  - Added a **Startup Page** selector in the **Appearance & Defaults** section under [SettingsPage.tsx](file:///c:/Users/sayan/Documents/GitHub/AI%20Grammer%20Studio/src/renderer/src/pages/SettingsPage.tsx).
+  - Users can configure which studio opens automatically on launch (`Grammar Editor`, `Studio Dashboard`, `Creative Writing`, `Neural Translation`, `Plagiarism & AI Detector`, or `Deep Linguistic Analysis`).
+  - Integrated persistent storage and backward-compatible settings migration in [storage.ts](file:///c:/Users/sayan/Documents/GitHub/AI%20Grammer%20Studio/src/main/storage.ts) and [App.tsx](file:///c:/Users/sayan/Documents/GitHub/AI%20Grammer%20Studio/src/renderer/src/App.tsx).
+
 ## [1.2.2] - 2026-08-21
 
 ### Added

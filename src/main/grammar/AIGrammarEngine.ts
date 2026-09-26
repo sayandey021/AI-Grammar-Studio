@@ -1,5 +1,5 @@
 import { GrammarProvider, GrammarResult, Suggestion } from './GrammarProvider';
-import { ModelManager, AVAILABLE_MODELS, ModelConfig } from '../models/ModelManager';
+import { ModelManager, AVAILABLE_MODELS, ModelConfig, M2M100_LANGUAGE_MAP } from '../models/ModelManager';
 import { Storage } from '../storage';
 import { QuickGrammarEngine, applySuggestionsToText } from './QuickGrammarEngine';
 import path from 'path';
@@ -142,11 +142,10 @@ export class AIGrammarEngine implements GrammarProvider {
       ? (settings.activeGrammarModelId || 'flan-t5-base') 
       : (settings.activeCreativeModelId || 'qwen3-0.6b');
     
-    // Safely map legacy or removed model IDs to available ONNX model IDs
-    if (id === 'qwen-2.5-0.5b' || id === 'qwen-0.5b') id = 'qwen3-0.6b';
+    if (id === 'qwen-2.5-0.5b' || id === 'qwen-0.5b' || id === 'deepseek-r1-1.5b') id = 'qwen3-0.6b';
     if (id === 'gemma-2-2b' || id === 'gemma-1b') id = 'gemma-3-1b';
-    if (id === 'vennify-t5-base') id = 'flan-t5-large';
-    if (id === 'aventiq-t5-small' || id === 'flan-t5-small') id = 'flan-t5-base';
+    if (id === 'vennify-t5-base' || id === 't5-large' || id === 'coedit-large') id = 'flan-t5-large';
+    if (id === 'aventiq-t5-small' || id === 'flan-t5-small') id = 'jonawhisper-gec-small';
 
     // Strictly enforce category matching: Creative tasks MUST use Creative models, Grammar tasks MUST use Grammar models
     let found = AVAILABLE_MODELS.find(m => m.id === id && m.category === mode);
@@ -303,13 +302,29 @@ export class AIGrammarEngine implements GrammarProvider {
      if (modelConfig.type === 'text-generation') {
         const isCreative = options?.mode === 'creative';
         const isThinkingEnabled = options?.isThinkingEnabled !== false;
+        const tone = options?.tone || this.storage.getSettings().creativeTone || 'creative';
 
         let sysMsg = '';
         if (isCreative) {
-          if (modelConfig.supportsThinking && isThinkingEnabled) {
-            sysMsg = "You are a thoughtful and creative AI assistant. You may think and reason step-by-step before producing your final creative response.";
+          if (tone === 'casual') {
+            if (modelConfig.supportsThinking && isThinkingEnabled) {
+              sysMsg = "You are a thoughtful and casual conversational AI assistant. You may think and reason step-by-step before producing your final casual, friendly response.";
+            } else {
+              sysMsg = "You are a casual, conversational writing assistant. Adopt a relaxed, friendly, and natural tone. STRICT RULES: (1) Write ONLY in English. (2) Output ONLY the requested content — no preamble, no commentary, no self-reference. (3) Do NOT ask follow-up questions. (4) Do NOT add [End], disclaimers, or meta-tags. (5) Do NOT say you are an AI. (6) For short/casual inputs (e.g. 'hey', 'hi'), reply with a single short friendly sentence. (7) For writing requests, produce natural, accessible writing. (8) Start your response immediately with the content.";
+            }
+          } else if (tone === 'professional') {
+            if (modelConfig.supportsThinking && isThinkingEnabled) {
+              sysMsg = "You are a thoughtful and professional AI assistant. You may think and reason step-by-step before producing your final polished, formal response.";
+            } else {
+              sysMsg = "You are a professional writing assistant. Adopt a formal, articulate, and authoritative tone suitable for professional communication. STRICT RULES: (1) Write ONLY in English. (2) Output ONLY the requested content — no preamble, no commentary, no self-reference. (3) Do NOT ask follow-up questions. (4) Do NOT add [End], disclaimers, or meta-tags. (5) Do NOT say you are an AI. (6) For short/casual inputs (e.g. 'hey', 'hi'), reply professionally in one sentence. (7) For writing requests, produce structured, polished content. (8) Start your response immediately with the content.";
+            }
           } else {
-            sysMsg = "You are a creative writing assistant. STRICT RULES: (1) Write ONLY in English. (2) Output ONLY the requested creative content — no preamble, no commentary, no self-reference. (3) Do NOT ask follow-up questions. (4) Do NOT add [End], disclaimers, or meta-tags. (5) Do NOT say you are an AI. (6) For short/casual inputs (e.g. 'hey', 'hi'), reply with a single short friendly sentence. (7) For writing requests, produce well-structured, immersive content. (8) Start your response immediately with the content.";
+            // 'creative' default
+            if (modelConfig.supportsThinking && isThinkingEnabled) {
+              sysMsg = "You are a thoughtful and creative AI assistant. You may think and reason step-by-step before producing your final imaginative creative response.";
+            } else {
+              sysMsg = "You are a creative writing assistant. Produce vivid, imaginative, and engaging content. STRICT RULES: (1) Write ONLY in English. (2) Output ONLY the requested creative content — no preamble, no commentary, no self-reference. (3) Do NOT ask follow-up questions. (4) Do NOT add [End], disclaimers, or meta-tags. (5) Do NOT say you are an AI. (6) For short/casual inputs (e.g. 'hey', 'hi'), reply with a single short friendly sentence. (7) For writing requests, produce well-structured, immersive content. (8) Start your response immediately with the content.";
+            }
           }
         } else {
           sysMsg = "You are a concise assistant. STRICT RULES: (1) Reply ONLY in English. (2) Keep answers SHORT and to the point. (3) No filler, no disclaimers, no meta-commentary. (4) For simple questions or greetings, reply in ONE sentence maximum.";
@@ -341,26 +356,7 @@ export class AIGrammarEngine implements GrammarProvider {
         return `System: ${sysMsg}\nUser: ${userMessage}\nAssistant:\n${promptEnd}`;
      }
 
-     if (modelConfig.id.includes('coedit')) {
-        const lowerInst = instruction.toLowerCase();
-        if (lowerInst.includes('formal')) {
-           return `Make the sentence formal: ${input}`;
-        } else if (lowerInst.includes('casual')) {
-           return `Change the style to casual: ${input}`;
-        } else if (lowerInst.includes('simple') || lowerInst.includes('concise')) {
-           return `Make the sentence simpler: ${input}`;
-        } else if (lowerInst.includes('rewrite') || lowerInst.includes('paraphrase')) {
-           return `Paraphrase the sentence: ${input}`;
-        }
-        return `Fix grammatical errors in this sentence: ${input}`;
-     }
-
-     if (modelConfig.id === 'flan-t5-base') {
-        // This is now onnx-community/t5-base-grammar-correction-ONNX which expects 'grammar: '
-        return `grammar: ${input}`;
-     }
-
-     if (modelConfig.id.includes('flan-t5') || modelConfig.id.includes('jonawhisper') || modelConfig.type === 'seq2seq-lm') {
+     if (modelConfig.id.includes('flan-t5') || modelConfig.id.includes('jonawhisper') || modelConfig.id.includes('t5') || modelConfig.type === 'seq2seq-lm' || modelConfig.type === 'text2text-generation') {
         if (instruction.toLowerCase().includes('tone') || instruction.toLowerCase().includes('concise')) {
            return `Rewrite this sentence to be ${instruction.split(' ').pop()} and grammatically correct: ${input}`;
         }
@@ -780,28 +776,41 @@ export class AIGrammarEngine implements GrammarProvider {
           const res = await classifier(sentence);
           let aiProb = 0.5;
           if (Array.isArray(res) && res.length > 0) {
-            const aiHit = res.find((item: any) => {
-              const lbl = (item.label || '').toLowerCase();
-              return lbl === 'fake' || lbl === 'label_1' || lbl === 'ai' || lbl === 'generated' || lbl === 'machine' || lbl === 'synthetic';
-            });
-            const humanHit = res.find((item: any) => {
-              const lbl = (item.label || '').toLowerCase();
-              return lbl === 'real' || lbl === 'label_0' || lbl === 'human' || lbl === 'original';
-            });
-
-            if (aiHit) {
-              aiProb = aiHit.score;
-            } else if (humanHit) {
-              aiProb = 1 - humanHit.score;
+            const isToxicModel = modelConfig.id === 'toxic-bert';
+            if (isToxicModel) {
+              const toxicLabels = ['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate'];
+              let maxToxicScore = 0;
+              const items = Array.isArray(res[0]) ? res[0] : res;
+              for (const item of items) {
+                if (toxicLabels.includes((item.label || '').toLowerCase())) {
+                  maxToxicScore = Math.max(maxToxicScore, item.score || 0);
+                }
+              }
+              aiProb = maxToxicScore;
             } else {
-              const top = res[0];
-              const labelLower = (top.label || '').toLowerCase();
-              if (labelLower === 'fake' || labelLower === 'label_1' || labelLower === 'ai' || labelLower === 'generated') {
-                aiProb = top.score;
-              } else if (labelLower === 'real' || labelLower === 'label_0' || labelLower === 'human') {
-                aiProb = 1 - top.score;
+              const aiHit = res.find((item: any) => {
+                const lbl = (item.label || '').toLowerCase();
+                return lbl === 'fake' || lbl === 'label_1' || lbl === 'ai' || lbl === 'generated' || lbl === 'machine' || lbl === 'synthetic';
+              });
+              const humanHit = res.find((item: any) => {
+                const lbl = (item.label || '').toLowerCase();
+                return lbl === 'real' || lbl === 'label_0' || lbl === 'human' || lbl === 'original';
+              });
+
+              if (aiHit) {
+                aiProb = aiHit.score;
+              } else if (humanHit) {
+                aiProb = 1 - humanHit.score;
               } else {
-                aiProb = top.score;
+                const top = res[0];
+                const labelLower = (top.label || '').toLowerCase();
+                if (labelLower === 'fake' || labelLower === 'label_1' || labelLower === 'ai' || labelLower === 'generated') {
+                  aiProb = top.score;
+                } else if (labelLower === 'real' || labelLower === 'label_0' || labelLower === 'human') {
+                  aiProb = 1 - top.score;
+                } else {
+                  aiProb = top.score;
+                }
               }
             }
           }
@@ -822,14 +831,18 @@ export class AIGrammarEngine implements GrammarProvider {
     text: string,
     sourceLang: string = 'en',
     targetLang: string = 'es',
-    modelId: string = 'nllb-200-distilled-600m'
+    modelId: string = 'm2m100-418m'
   ): Promise<{ translation: string; sourceLang: string; targetLang: string; modelName: string }> {
     if (!text || !text.trim()) {
-      return { translation: '', sourceLang, targetLang, modelName: 'Meta NLLB-200' };
+      return { translation: '', sourceLang, targetLang, modelName: 'Meta M2M-100' };
+    }
+
+    if (sourceLang === targetLang) {
+      return { translation: text, sourceLang, targetLang, modelName: 'Instant' };
     }
 
     const modelConfig = AVAILABLE_MODELS.find(m => m.id === modelId && m.category === 'translation')
-      || AVAILABLE_MODELS.find(m => m.id === 'nllb-200-distilled-600m')
+      || AVAILABLE_MODELS.find(m => m.id === 'm2m100-418m')
       || AVAILABLE_MODELS.find(m => m.category === 'translation');
 
     if (!modelConfig) {
@@ -841,9 +854,9 @@ export class AIGrammarEngine implements GrammarProvider {
       throw new Error(`Translation model '${modelConfig.name}' is not downloaded. Please download it from Settings or the Translation page.`);
     }
 
-    // Resolve NLLB codes
-    const srcCode = NLLB_LANGUAGE_MAP[sourceLang.toLowerCase()]?.code || sourceLang;
-    const tgtCode = NLLB_LANGUAGE_MAP[targetLang.toLowerCase()]?.code || targetLang;
+    // Resolve language codes for M2M-100
+    const srcCode = M2M100_LANGUAGE_MAP[sourceLang.toLowerCase()] || sourceLang.toLowerCase();
+    const tgtCode = M2M100_LANGUAGE_MAP[targetLang.toLowerCase()] || targetLang.toLowerCase();
 
     const translator = await this.getPipeline(modelConfig);
 

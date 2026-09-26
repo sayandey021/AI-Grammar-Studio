@@ -85,21 +85,21 @@ Whether running on a discrete GPU with **Microsoft DirectML** acceleration or an
 
 All models run 100% locally on your device through `@xenova/transformers` and `onnxruntime-node` with Q4/int8 quantization for low RAM/VRAM footprint:
 
-| Category | Model Name | Hugging Face Repository | Parameters | Size | Specialty |
-| :--- | :--- | :--- | :---: | :---: | :--- |
-| **Grammar** | **Gec-T5 Small** | `JonaWhisper/jonawhisper-gec-t5-small-onnx` | 80M | ~120 MB | Ultra-fast, lightweight grammar correction |
-| **Grammar** | **Flan-T5 Base** | `onnx-community/t5-base-grammar-correction-ONNX` | 250M | ~350 MB | Purpose-built grammar refinement |
-| **Grammar** | **Flan-T5 Large** | `Xenova/LaMini-Flan-T5-783M` | 783M | ~850 MB | Deep instruction-following & structural edits |
-| **Grammar** | **CoEdIT Large** | `imrahamed/coedit-large-webgpu-onnx` | 783M | ~3.2 GB | Grammarly's state-of-the-art text-editing model |
-| **Creative** | **Qwen 3** | `onnx-community/Qwen3-0.6B-ONNX` | 0.6B | ~877 MB | Fast creative generation & `<think>` reasoning |
-| **Creative** | **Gemma 3** | `onnx-community/gemma-3-1b-it-ONNX` | 1.0B | ~860 MB | Google's compact instruction-tuned model |
-| **Creative** | **Llama 3.2** | `onnx-community/Llama-3.2-1B-Instruct-ONNX` | 1.2B | ~1.6 GB | Meta's high-reasoning writing assistant |
-| **Creative** | **Qwen 2.5** | `onnx-community/Qwen2.5-1.5B-Instruct` | 1.5B | ~900 MB | Coherent text generation & tone rewriting |
-| **Creative** | **Qwen 3** | `onnx-community/Qwen3-1.7B-ONNX` | 1.7B | ~1.4 GB | Advanced creative writing & `<think>` reasoning |
-| **Detector** | **ModernBERT RAID AI Detector** | `onnx-community/modernbert-ai-detection-raid-mage-ONNX` | 149M | ~144 MB | SOTA detection for GPT-4o, Claude 3.5, Gemini, Llama 3 |
-| **Detector** | **TMR AI Text Detector** | `onnx-community/tmr-ai-text-detector-ONNX` | 125M | ~125 MB | Neural AI text classifier |
-| **Detector** | **RoBERTa OpenAI Detector** | `onnx-community/roberta-base-openai-detector-ONNX` | 125M | ~125 MB | Fine-tuned OpenAI classifier |
-| **Translation** | **Meta NLLB-200** | `Xenova/nllb-200-distilled-600M` | 600M | ~875 MB | 100% offline translation across 200+ global languages |
+| Category | Model Name | Hugging Face Repository | License | Parameters | Size | Specialty |
+| :--- | :--- | :--- | :---: | :---: | :---: | :--- |
+| **Grammar** | **GEC-T5 Small** | `JonaWhisper/jonawhisper-gec-t5-small-onnx` | Apache 2.0 | 80M | ~120 MB | Ultra-fast, lightweight grammar correction |
+| **Grammar** | **Flan-T5 Base** | `Xenova/flan-t5-base` | Apache 2.0 | 250M | ~350 MB | Purpose-built grammar refinement & reasoning |
+| **Grammar** | **Flan-T5 Large** | `dmmagdal/flan-t5-large-onnx-js-quantized` | Apache 2.0 | 770M | ~825 MB | Deep high-capacity grammar refinement & instruction following |
+| **Creative** | **Qwen 3** | `onnx-community/Qwen3-0.6B-ONNX` | Apache 2.0 | 0.6B | ~877 MB | Fast creative generation & `<think>` reasoning |
+| **Creative** | **Gemma 3** | `onnx-community/gemma-3-1b-it-ONNX` | Gemma Terms | 1.0B | ~860 MB | Google's compact instruction-tuned model |
+| **Creative** | **Llama 3.2** | `onnx-community/Llama-3.2-1B-Instruct-ONNX` | Llama 3.2 | 1.2B | ~1.6 GB | Meta's high-reasoning writing assistant |
+| **Creative** | **Qwen 2.5** | `onnx-community/Qwen2.5-1.5B-Instruct` | Apache 2.0 | 1.5B | ~900 MB | Coherent text generation & tone rewriting |
+| **Creative** | **Qwen 3** | `onnx-community/Qwen3-1.7B-ONNX` | Apache 2.0 | 1.7B | ~1.4 GB | Advanced creative writing & `<think>` reasoning |
+| **Detector** | **ModernBERT RAID AI Detector** | `onnx-community/modernbert-ai-detection-raid-mage-ONNX` | Apache 2.0 | 149M | ~144 MB | SOTA detection for GPT-4o, Claude 3.5, Gemini, Llama 3 |
+| **Detector** | **TMR AI Text Detector** | `onnx-community/tmr-ai-text-detector-ONNX` | MIT | 125M | ~125 MB | Neural AI text classifier |
+| **Detector** | **RoBERTa OpenAI Detector** | `onnx-community/roberta-base-openai-detector-ONNX` | MIT | 125M | ~125 MB | Fine-tuned OpenAI classifier |
+| **Detector** | **Toxic-BERT Safety Classifier** | `Xenova/toxic-bert` | Apache 2.0 | 110M | ~125 MB | Toxicity, threat, obscenity & tone safety scanner |
+| **Translation** | **Meta M2M-100** | `Xenova/m2m100_418M` | MIT | 418M | ~590 MB | Universal many-to-many translation across 100 languages |
 
 ---
 

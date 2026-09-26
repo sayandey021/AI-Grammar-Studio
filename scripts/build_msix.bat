@@ -11,7 +11,7 @@ echo     AI Grammar Studio - Building MSIX / AppX Package
 echo =======================================================
 echo Identity Name:       Saayan.AIGrammerStudio
 echo Publisher:           CN=37E2AF47-D2FC-489C-BDC1-02C989A7B989
-echo Publisher Display:   Saayan
+echo Publisher Display:   SaayanSoft
 echo =======================================================
 echo.
 
@@ -70,10 +70,23 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
+:: Clean temporary build outputs and leave only the store package (.msix)
+echo.
+echo Cleaning temporary build artifacts from dist...
+if exist "dist\win-unpacked" rmdir /s /q "dist\win-unpacked" 2>nul
+del /f /q "dist\*.blockmap" 2>nul
+del /f /q "dist\builder-debug.yml" "dist\builder-effective-config.yaml" "dist\latest.yml" "dist\*.yaml" "dist\*.yml" 2>nul
+del /f /q "dist\*.tmp" 2>nul
+
 echo.
 echo =======================================================
 echo [SUCCESS] Windows Package (.MSIX / .APPX) generated successfully!
 echo Output Directory: dist\
+echo.
+echo Release Packages:
+for %%F in ("dist\*.msix") do (
+    echo   - %%~nxF
+)
 echo =======================================================
 echo.
 pause

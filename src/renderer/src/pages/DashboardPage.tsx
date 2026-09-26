@@ -17,15 +17,15 @@ import appLogo from '../assets/logo.png';
 import packageInfo from '../../../../package.json';
 
 interface DashboardPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: any) => void;
   settings?: any;
 }
 
 const GRAMMAR_MODELS_MAP: Record<string, string> = {
-  'jonawhisper-gec-small': 'Gec-T5 Small',
-  'flan-t5-base': 'T5 Base (Grammar)',
-  'flan-t5-large': 'Flan-T5 Large',
-  'coedit-large': 'CoEdIT Large',
+  'jonawhisper-gec-small': 'GEC-T5 Small (80M)',
+  'flan-t5-base': 'Flan-T5 Base (250M)',
+  'flan-t5-large': 'Flan-T5 Large (770M)',
+  't5-large': 'Flan-T5 Large (770M)',
 };
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, settings }) => {

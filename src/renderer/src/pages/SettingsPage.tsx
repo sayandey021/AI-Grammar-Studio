@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Cpu, Zap, Check, X, AlertTriangle, ShieldCheck, Sparkles } from 'lucide-react';
+import { Cpu, Zap, Check, X } from 'lucide-react';
 import appLogo from '../assets/logo.png';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -19,7 +19,7 @@ interface ModelStatus {
 }
 
 const AVAILABLE_MODELS = [
-  // ── Grammar Models (Sorted by Parameters: 80M -> 250M -> 783M) ───────────────
+  // ── Grammar Models (Sorted by Parameters: 80M -> 250M -> 770M) ───────────────
   {
     id: 'jonawhisper-gec-small',
     category: 'grammar',
@@ -27,34 +27,25 @@ const AVAILABLE_MODELS = [
     parameters: '80M',
     paramsCount: 0.08,
     sizeMB: 120,
-    desc: 'Lightweight offline grammar and spelling correction model.'
+    desc: 'Lightweight offline grammar and spelling correction model (Apache 2.0).'
   },
   {
     id: 'flan-t5-base',
     category: 'grammar',
-    name: 'T5 Base (Grammar)',
+    name: 'Flan-T5 Base',
     parameters: '250M',
     paramsCount: 0.25,
-    sizeMB: 350,
-    desc: 'Blazing fast, specialized grammar correction.'
+    sizeMB: 250,
+    desc: 'Google\'s official Flan-T5 base model for high-precision grammar and sentence fixing (Apache 2.0).'
   },
   {
     id: 'flan-t5-large',
     category: 'grammar',
     name: 'Flan-T5 Large',
-    parameters: '783M',
-    paramsCount: 0.783,
-    sizeMB: 850,
-    desc: 'High precision offline grammar & spell correction.'
-  },
-  {
-    id: 'coedit-large',
-    category: 'grammar',
-    name: 'CoEdIT Large',
-    parameters: '783M',
-    paramsCount: 0.783,
-    sizeMB: 3260,
-    desc: 'Grammarly\'s specialized SOTA text-editing model for professional grammar correction & tone adjustment.'
+    parameters: '770M',
+    paramsCount: 0.77,
+    sizeMB: 825,
+    desc: "Google's instruction-tuned Flan-T5 large model for comprehensive grammatical, spelling, and stylistic polishing (Apache 2.0)."
   },
 
   // ── Creative Models (Sorted by Parameters: 0.6B -> 1.0B -> 1.2B -> 1.5B -> 1.7B) ──
@@ -134,16 +125,25 @@ const AVAILABLE_MODELS = [
     sizeMB: 144,
     desc: 'State-of-the-art ModernBERT (Q4) fine-tuned on the RAID & MAGE benchmarks for detecting GPT-4o, Claude 3.5, Gemini, & Llama 3 (~144MB).'
   },
-
-  // ── Translation Models (Meta NLLB-200 200+ Languages) ─────────────────────
   {
-    id: 'nllb-200-distilled-600m',
+    id: 'toxic-bert',
+    category: 'detector',
+    name: 'Toxic-BERT Safety Classifier',
+    parameters: '110M',
+    paramsCount: 0.11,
+    sizeMB: 125,
+    desc: 'Unitary Toxic-BERT safety classifier for flagging toxic, offensive, insult, and threat content in writing (~125MB, Apache 2.0).'
+  },
+
+  // ── Translation Models ──────────────────────────────────────────────────
+  {
+    id: 'm2m100-418m',
     category: 'translation',
-    name: 'Meta NLLB-200 (200+ Languages)',
-    parameters: '600M',
-    paramsCount: 0.6,
-    sizeMB: 875,
-    desc: 'Meta\'s NLLB-200 distilled 600M model. High-precision direct translation across 200+ global languages on-device with zero telemetry (~875MB).'
+    name: 'Meta M2M-100 (100 Languages)',
+    parameters: '418M',
+    paramsCount: 0.418,
+    sizeMB: 590,
+    desc: 'Meta\'s M2M-100 418M model. True many-to-many direct neural translation across 100 global languages completely offline with full MIT commercial permissibility (~590MB).'
   }
 ];
 
@@ -251,6 +251,8 @@ const CustomSelect = ({ value, onChange, options }: { value: string, onChange: (
 const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange }) => {
   const [localSettings, setLocalSettings] = useState(settings || {
     theme: 'system',
+    defaultStartupPage: 'editor',
+    creativeTone: 'creative',
     defaultMode: 'quick',
     defaultTone: 'professional',
     activeGrammarModelId: 'flan-t5-base',
@@ -333,6 +335,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
     const newSettings = { ...localSettings, [key]: value };
     setLocalSettings(newSettings);
     onSettingsChange(newSettings);
+    try {
+      localStorage.setItem('app_settings', JSON.stringify(newSettings));
+      if (key === 'defaultStartupPage') {
+        localStorage.setItem('app_startup_page', value);
+      }
+    } catch {}
     window.api.saveSettings(newSettings);
   };
 
@@ -383,7 +391,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
       handleChange('activeCreativeModelId', 'qwen3-0.6b');
     }
     if (localSettings.activeTranslationModelId === modelId) {
-      handleChange('activeTranslationModelId', 'nllb-200-distilled-600m');
+      handleChange('activeTranslationModelId', 'm2m100-418m');
     }
 
     try {
@@ -500,6 +508,41 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
                     { value: 'system', label: 'System Preference' },
                     { value: 'dark', label: 'Dark Theme' },
                     { value: 'light', label: 'Light Theme' }
+                  ]}
+                />
+              </div>
+
+              <div className="settings-field-row">
+                <div>
+                  <div className="settings-field-label">Startup Page</div>
+                  <div className="settings-field-subtext">Choose which studio opens on launch</div>
+                </div>
+                <CustomSelect
+                  value={localSettings.defaultStartupPage || 'editor'}
+                  onChange={(v) => handleChange('defaultStartupPage', v)}
+                  options={[
+                    { value: 'editor', label: 'Grammar Editor' },
+                    { value: 'dashboard', label: 'Studio Dashboard' },
+                    { value: 'prompt', label: 'Creative Writing' },
+                    { value: 'translation', label: 'Neural Translation' },
+                    { value: 'detector', label: 'Plagiarism & AI Detector' },
+                    { value: 'analysis', label: 'Deep Linguistic Analysis' }
+                  ]}
+                />
+              </div>
+
+              <div className="settings-field-row">
+                <div>
+                  <div className="settings-field-label">Creative Studio Tone</div>
+                  <div className="settings-field-subtext">Default tone style for Creative Studio</div>
+                </div>
+                <CustomSelect
+                  value={localSettings.creativeTone || 'creative'}
+                  onChange={(v) => handleChange('creativeTone', v)}
+                  options={[
+                    { value: 'creative', label: 'Creative' },
+                    { value: 'casual', label: 'Casual' },
+                    { value: 'professional', label: 'Professional' }
                   ]}
                 />
               </div>
@@ -1000,7 +1043,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {AVAILABLE_MODELS.filter(m => m.category === 'translation').map(model => {
                   const status = modelStatuses[model.id] || { downloaded: false, downloading: false, progress: 0 };
-                  const isActive = (localSettings.activeTranslationModelId || 'nllb-200-distilled-600m') === model.id && status.downloaded;
+                  const isActive = (localSettings.activeTranslationModelId || 'm2m100-418m') === model.id && status.downloaded;
 
                   return (
                     <div

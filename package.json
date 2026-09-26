@@ -1,7 +1,7 @@
 {
   "name": "ai-grammar-studio",
   "productName": "AI Grammar Studio",
-  "version": "1.2.2",
+  "version": "1.5.0",
   "description": "AI Grammar Studio - Private, offline-first intelligent writing assistant",
   "main": "out/main/index.js",
   "author": "Saayan",
@@ -77,7 +77,7 @@
       "artifactName": "${productName}-${version}-${arch}.msix",
       "identityName": "Saayan.AIGrammerStudio",
       "publisher": "CN=37E2AF47-D2FC-489C-BDC1-02C989A7B989",
-      "publisherDisplayName": "Saayan",
+      "publisherDisplayName": "SaayanSoft",
       "applicationId": "Saayan.AIGrammerStudio",
       "displayName": "AI Grammar Studio",
       "backgroundColor": "#070a13",

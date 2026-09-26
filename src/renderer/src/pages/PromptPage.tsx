@@ -158,7 +158,8 @@ const PromptPage: React.FC<PromptPageProps> = ({ onNavigateToSettings, onSendToE
 
     try {
       if (window.api?.generateAiPrompt) {
-        await window.api.generateAiPrompt(prompt, { isThinkingEnabled });
+        const creativeTone = settings?.creativeTone || 'creative';
+        await window.api.generateAiPrompt(prompt, { isThinkingEnabled, tone: creativeTone });
       } else {
         throw new Error('API not available');
       }
@@ -212,7 +213,9 @@ const PromptPage: React.FC<PromptPageProps> = ({ onNavigateToSettings, onSendToE
           </div>
           <div>
             <h2 className="studio-title">Creative Studio</h2>
-            <p className="studio-subtitle">Immersive AI writing canvas</p>
+            <p className="studio-subtitle">
+              Immersive AI writing canvas • Tone: <span style={{ textTransform: 'capitalize', color: '#818cf8', fontWeight: 600 }}>{settings?.creativeTone || 'creative'}</span>
+            </p>
           </div>
         </div>
 

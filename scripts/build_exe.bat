@@ -60,10 +60,23 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
+:: Clean temporary build outputs and leave only the installer (.exe)
+echo.
+echo Cleaning temporary build artifacts from dist...
+if exist "dist\win-unpacked" rmdir /s /q "dist\win-unpacked" 2>nul
+del /f /q "dist\*.blockmap" 2>nul
+del /f /q "dist\builder-debug.yml" "dist\builder-effective-config.yaml" "dist\latest.yml" "dist\*.yaml" "dist\*.yml" 2>nul
+del /f /q "dist\*.tmp" 2>nul
+
 echo.
 echo =======================================================
 echo [SUCCESS] Windows Installer (.EXE) generated successfully!
 echo Output Directory: dist\
+echo.
+echo Release Packages:
+for %%F in ("dist\*.exe") do (
+    echo   - %%~nxF
+)
 echo =======================================================
 echo.
 pause
